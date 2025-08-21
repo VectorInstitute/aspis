@@ -37,7 +37,7 @@ repos:
     rev: v1.16.0
     hooks:
     - id: mypy
-      entry: python3 -m mypy --config-file pyproject.toml
+      entry: python -m mypy --config-file pyproject.toml
       language: system
       types: [python]
       exclude: "tests"
@@ -58,15 +58,15 @@ repos:
     hooks:
     - id: doctest
       name: doctest
-      entry: python3 -m doctest -o NORMALIZE_WHITESPACE
-      files: "^aieng_template/"
+      entry: python -m doctest -o NORMALIZE_WHITESPACE
+      files: "^aspis/"
       language: system
 
   - repo: local
     hooks:
     - id: pytest
       name: pytest
-      entry: python3 -m pytest -m "not integration_test"
+      entry: python -m pytest -m "not integration_test"
       language: system
       pass_filenames: false
       always_run: true

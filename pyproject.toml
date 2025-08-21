@@ -1,13 +1,15 @@
 [project]
-name = "aieng-template-uv"
+name = "aspis"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [ {name = "Vector AI Engineering", email = "ai_engineering@vectorinstitute.ai"}]
 license = "Apache-2.0"
-repository = "https://github.com/VectorInstitute/aieng-template-uv"
+repository = "https://github.com/VectorInstitute/aspis"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "streamlit>=1.48.1",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -134,5 +136,5 @@ markers = [
 
 [tool.coverage]
     [tool.coverage.run]
-    source=["aieng_template"]
+    source=["aspis"]
     omit=["tests/*", "*__init__.py"]
