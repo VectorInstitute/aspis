@@ -2,6 +2,8 @@
 
 import streamlit as st
 
+from aspis.chat import render_chat_ui
+
 
 def main() -> None:
     """Entry point for the Aspis application."""
@@ -13,7 +15,18 @@ def main() -> None:
 
     if not openai_api_key:
         st.markdown("Welcome to Aspis!")
+        render_api_key_input()
 
+    elif not risk_description:
+        render_risk_description_input()
+
+    else:
+        render_chat_ui(risk_description)
+
+
+def render_api_key_input() -> None:
+    """Render the API key input form."""
+    with st.form("api_key_form"):
         current_openai_api_key = st.text_input(
             label="Enter your Open AI API key:",
             placeholder="Paste your API key here...",
@@ -21,14 +34,17 @@ def main() -> None:
             type="password",
         )
 
-        if st.button("Next", type="primary"):
+        if st.form_submit_button("Next", type="primary"):
             if current_openai_api_key.strip():
                 st.session_state.openai_api_key = current_openai_api_key
                 st.rerun()
             else:
                 st.error("Please enter an Open AI API key before proceeding.")
 
-    elif not risk_description:
+
+def render_risk_description_input() -> None:
+    """Render the risk description input form."""
+    with st.form("risk_description_form"):
         current_risk_description = st.text_area(
             label="What is the AI risk you want to create a measurement instrument for?",
             placeholder="Enter your risk description here...",
@@ -38,7 +54,7 @@ def main() -> None:
             ),
         )
 
-        if st.button("Next", type="primary"):
+        if st.form_submit_button("Next", type="primary"):
             if current_risk_description.strip():
                 st.session_state.risk_description = current_risk_description
                 st.rerun()
