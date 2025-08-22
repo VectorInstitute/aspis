@@ -21,7 +21,7 @@ def main() -> None:
         render_risk_description_input()
 
     else:
-        render_chat_ui(risk_description)
+        render_chat_ui(risk_description=risk_description)
 
 
 def render_api_key_input() -> None:
