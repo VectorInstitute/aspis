@@ -8,6 +8,9 @@ license = "Apache-2.0"
 repository = "https://github.com/VectorInstitute/aspis"
 requires-python = ">=3.12"
 dependencies = [
+    "langchain>=0.3.27",
+    "langchain-openai>=0.3.31",
+    "pydantic>=2.11.7",
     "streamlit>=1.48.1",
 ]
 

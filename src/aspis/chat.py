@@ -1,11 +1,14 @@
 """Contains the chat functionality for the app."""
 
-from enum import Enum
-
 import streamlit as st
 
+from aspis.chatbot import get_next_chat_question
+from aspis.message import ConversationMessage, ConversationRole
 
-def render_chat_ui(risk_description: str) -> None:
+
+def render_chat_ui(
+    openai_api_key: str, risk_description: str
+) -> list[ConversationMessage] | None:
     """Render the chat UI."""
     conversation = st.session_state.get("conversation", [])
 
@@ -26,52 +29,47 @@ def render_chat_ui(risk_description: str) -> None:
     # Looping through the whole conversation and writing each message to the UI
     # with their respective roles
     for message in conversation:
-        chat_message = st.chat_message(name=message.role.value)
-        chat_message.write(message.content)
+        write_conversation_message(message)
 
-    # The user's input field
+    # Asking the question
+    with st.spinner("Thinking..."):
+        question = get_next_chat_question(
+            risk_description=risk_description,
+            conversation_messages=conversation,
+            api_key=openai_api_key,
+        )
+        if question is None:
+            # If there are not more questions to ask, return the conversation history
+            # to indicate that the conversation is over
+            return conversation
+
+        message = ConversationMessage(role=ConversationRole.ASSISTANT, content=question)
+        conversation.append(message)
+        write_conversation_message(message)
+
+    # The user's input field for the answer
     user_input = st.chat_input("Your answer...")
     if user_input:
         # Writing the user's input to the UI
-        conversation.append(
-            ConversationMessage(role=ConversationRole.USER, content=user_input)
-        )
-
-        # TODO: Here I am just making an "echo" bot. Replace this with the LLM response
-        conversation.append(
-            ConversationMessage(role=ConversationRole.ASSISTANT, content=user_input)
-        )
+        message = ConversationMessage(role=ConversationRole.USER, content=user_input)
+        conversation.append(message)
+        write_conversation_message(message)
 
         # Updating the conversation in the session state
         st.session_state.conversation = conversation
+        # Triggering a rerun to update the UI and ask the next question
         st.rerun()
 
-
-class ConversationRole(Enum):
-    """The role of a conversation participant."""
-
-    ASSISTANT = "assistant"
-    USER = "user"
+    # Returning None to indicate that the conversation is not over yet
+    return None
 
 
-class ConversationMessage:
-    """A message in the conversation."""
+def write_conversation_message(message: ConversationMessage) -> None:
+    """
+    Write a conversation message to the UI.
 
-    def __init__(self, role: ConversationRole, content: str):
-        """Initialize a conversation message with a role and content."""
-        self.role = role
-        self.content = content
-
-    def __repr__(self) -> str:
-        """Return a string representation of the conversation message."""
-        return f"{self.role.value}: {self.content}"
-
-    def __eq__(self, other: object) -> bool:
-        """Check if the conversation message is equal to another object."""
-        if not isinstance(other, ConversationMessage):
-            return False
-        return self.role == other.role and self.content == other.content
-
-    def __hash__(self) -> int:
-        """Hash the conversation message."""
-        return hash((self.role, self.content))
+    Args:
+        message: The conversation message to write.
+    """
+    chat_message = st.chat_message(name=message.role.value)
+    chat_message.write(message.content)
