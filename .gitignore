@@ -19,3 +19,5 @@ wheels/
 
 # macos
 *.DS_Store
+.coverage
+coverage.xml
