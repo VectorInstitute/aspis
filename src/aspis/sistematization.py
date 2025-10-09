@@ -18,6 +18,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 MODEL = "gpt-3.5-turbo"
+TEMPERATURE = 0.7
 SISTEMATIZATION_PAPER_PATH = Path("src/aspis/data/sistematization_paper.txt")
 
 SISTEMATIZATION_PROMPT = ChatPromptTemplate.from_template(
@@ -48,7 +49,9 @@ Please reply with a maximum of 5 questions in the following JSON format:
 
 
 def get_sistematization_questions(
-    product_description: str, risk_description: str, openai_api_key: str
+    product_description: str,
+    risk_description: str,
+    openai_api_key: str,
 ) -> list[str] | None:
     """
     Get the sistematization questions.
@@ -63,15 +66,12 @@ def get_sistematization_questions(
         The follow up sistematization questions. Will be None if the model fails to
         return a valid JSON.
     """
-    with open(SISTEMATIZATION_PAPER_PATH, "r") as file:
-        sistematization_paper = file.read()
-
     llm = get_llm(openai_api_key)
     response = llm.invoke(
         SISTEMATIZATION_PROMPT.format(
             product_description=product_description,
             risk_description=risk_description,
-            sistematization_paper=sistematization_paper,
+            sistematization_paper=SISTEMATIZATION_PAPER_PATH.read_text(),
         )
     )
 
@@ -95,4 +95,4 @@ def get_llm(api_key: str) -> BaseChatModel:
     -------
         The LLM.
     """
-    return ChatOpenAI(model=MODEL, temperature=0.7, api_key=SecretStr(api_key))
+    return ChatOpenAI(model=MODEL, temperature=TEMPERATURE, api_key=SecretStr(api_key))

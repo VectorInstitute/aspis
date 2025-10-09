@@ -100,7 +100,10 @@ def render_follow_up_questions(follow_up_questions: list[str]) -> None:
     with st.form("questions_form"):
         current_answers = [""] * len(follow_up_questions)
         for i in range(len(follow_up_questions)):
-            current_answers[i] = st.text_area(label=follow_up_questions[i], placeholder="Enter your answer here...")
+            current_answers[i] = st.text_area(
+                label=follow_up_questions[i],
+                placeholder="Enter your answer here...",
+            )
 
         if st.form_submit_button("Submit Answers", type="primary"):
             for i in range(len(current_answers)):
@@ -108,7 +111,7 @@ def render_follow_up_questions(follow_up_questions: list[str]) -> None:
                     st.error(f"Please answer question {i}.")
                     return
 
-            st.session_state.answers = current_answers
+            st.session_state.sistematization_answers = current_answers
             st.rerun()
 
 

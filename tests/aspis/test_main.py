@@ -22,7 +22,7 @@ def test_main_render_inputs_when_empty() -> None:
 
 
 @patch("aspis.sistematization.get_sistematization_questions")
-def test_main_render_chat_ui_when_inputs_are_set(mock_get_sistematization_questions: Mock) -> None:
+def test_main_ask_for_questions_when_inputs_are_set(mock_get_sistematization_questions: Mock) -> None:
     app = AppTest.from_file("src/aspis/main.py")
 
     app.session_state.openai_api_key = "test api key"
@@ -97,3 +97,95 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_get_sistematiza
     assert app.session_state.risk_description == test_risk_description
     assert app.session_state.product_description == test_product_description
     assert mock_get_sistematization_questions.has_been_called
+
+
+@patch("aspis.sistematization.get_sistematization_questions")
+def test_main_render_error_when_questions_are_none(mock_get_sistematization_questions: Mock) -> None:
+    mock_get_sistematization_questions.return_value = None
+
+    app = AppTest.from_file("src/aspis/main.py")
+    app.run()
+
+    app.text_input[0].set_value("test api key")
+    app.text_area[1].set_value("test risk description")
+    app.text_area[0].set_value("test product description")
+
+    app.button[0].click()
+    app.run()
+
+    assert mock_get_sistematization_questions.has_been_called_with(
+        product_description="test product description",
+        risk_description="test risk description",
+        openai_api_key="test api key",
+    )
+    assert app.error[0].value == "Error generating questions. Please try again."
+
+
+@patch("aspis.sistematization.get_sistematization_questions")
+def test_main_render_questions_on_success(mock_get_sistematization_questions: Mock) -> None:
+    test_questions = ["test question 0", "test question 1"]
+    mock_get_sistematization_questions.return_value = test_questions
+
+    app = AppTest.from_file("src/aspis/main.py")
+    app.run()
+
+    app.text_input[0].set_value("test api key")
+    app.text_area[1].set_value("test risk description")
+    app.text_area[0].set_value("test product description")
+
+    app.button[0].click()
+    app.run()
+
+    assert mock_get_sistematization_questions.has_been_called_with(
+        product_description="test product description",
+        risk_description="test risk description",
+        openai_api_key="test api key",
+    )
+    for i in range(len(test_questions)):
+        assert app.text_area[i].label == test_questions[i]
+
+
+@patch("aspis.sistematization.get_sistematization_questions")
+def test_main_error_when_answers_are_empty(mock_get_sistematization_questions: Mock) -> None:
+    test_questions = ["test question 0", "test question 1"]
+    mock_get_sistematization_questions.return_value = test_questions
+
+    app = AppTest.from_file("src/aspis/main.py")
+    app.run()
+
+    app.text_input[0].set_value("test api key")
+    app.text_area[1].set_value("test risk description")
+    app.text_area[0].set_value("test product description")
+
+    app.button[0].click()
+    app.run()
+
+    app.text_area[1].set_value("test answer to question 1")
+    app.button[0].click()
+    app.run()
+
+    assert app.error[0].value == "Please answer question 0."
+
+
+@patch("aspis.sistematization.get_sistematization_questions")
+def test_main_saves_answers_on_success(mock_get_sistematization_questions: Mock) -> None:
+    test_questions = ["test question 0", "test question 1"]
+    test_answers = ["test answer to question 0", "test answer to question 1"]
+    mock_get_sistematization_questions.return_value = test_questions
+
+    app = AppTest.from_file("src/aspis/main.py")
+    app.run()
+
+    app.text_input[0].set_value("test api key")
+    app.text_area[1].set_value("test risk description")
+    app.text_area[0].set_value("test product description")
+
+    app.button[0].click()
+    app.run()
+
+    app.text_area[0].set_value(test_answers[0])
+    app.text_area[1].set_value(test_answers[1])
+    app.button[0].click()
+    app.run()
+
+    assert app.session_state.sistematization_answers == test_answers
