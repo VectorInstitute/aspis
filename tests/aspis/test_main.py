@@ -21,8 +21,8 @@ def test_main_render_inputs_when_empty() -> None:
     assert app.text_area[1].label == "What is the AI risk you want to create a measurement instrument for?"
 
 
-@patch("aspis.chat.render_chat_ui")
-def test_main_render_chat_ui_when_inputs_are_set(mock_render_chat_ui: Mock) -> None:
+@patch("aspis.sistematization.get_sistematization_questions")
+def test_main_render_chat_ui_when_inputs_are_set(mock_get_sistematization_questions: Mock) -> None:
     app = AppTest.from_file("src/aspis/main.py")
 
     app.session_state.openai_api_key = "test api key"
@@ -31,15 +31,15 @@ def test_main_render_chat_ui_when_inputs_are_set(mock_render_chat_ui: Mock) -> N
 
     app.run()
 
-    assert mock_render_chat_ui.call_count == 1
-    call_args_list = mock_render_chat_ui.call_args_list
+    assert mock_get_sistematization_questions.call_count == 1
+    call_args_list = mock_get_sistematization_questions.call_args_list
     assert call_args_list[0].kwargs["risk_description"] == "test risk description"
     assert call_args_list[0].kwargs["product_description"] == "test product description"
     assert call_args_list[0].kwargs["openai_api_key"] == "test api key"
 
 
-@patch("aspis.chat.render_chat_ui")
-def test_main_render_error_messages_when_inputs_are_not_set(mock_render_chat_ui: Mock) -> None:
+@patch("aspis.sistematization.get_sistematization_questions")
+def test_main_render_error_messages_when_inputs_are_not_set(mock_get_sistematization_questions: Mock) -> None:
     test_api_key = "test api key"
     test_risk_description = "test risk description"
     test_product_description = "test product description"
@@ -96,3 +96,4 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_render_chat_ui:
     assert app.session_state.openai_api_key == test_api_key
     assert app.session_state.risk_description == test_risk_description
     assert app.session_state.product_description == test_product_description
+    assert mock_get_sistematization_questions.has_been_called

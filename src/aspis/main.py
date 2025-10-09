@@ -2,7 +2,7 @@
 
 import streamlit as st
 
-from aspis.chat import render_chat_ui
+from aspis.sistematization import get_sistematization_questions
 
 
 def main() -> None:
@@ -18,11 +18,18 @@ def main() -> None:
         render_landing_page()
 
     else:
-        render_chat_ui(
-            openai_api_key=openai_api_key,
-            risk_description=risk_description,
-            product_description=product_description,
-        )
+        with st.spinner("Generating questions..."):
+            follow_up_questions = get_sistematization_questions(
+                openai_api_key=openai_api_key,
+                risk_description=risk_description,
+                product_description=product_description,
+            )
+
+        if follow_up_questions is None:
+            st.error("Error generating questions. Please try again.")
+            return
+
+        render_follow_up_questions(follow_up_questions)
 
 
 def render_landing_page() -> None:
@@ -78,6 +85,30 @@ def render_landing_page() -> None:
                 return
 
             # If it gets here, all the inputs are set, so rerun the UI
+            st.rerun()
+
+
+def render_follow_up_questions(follow_up_questions: list[str]) -> None:
+    """
+    Render the follow up questions to be asked to the user.
+
+    Args:
+        follow_up_questions: The follow up questions.
+    """
+    st.markdown("### Follow Up Questions")
+
+    with st.form("questions_form"):
+        current_answers = [""] * len(follow_up_questions)
+        for i in range(len(follow_up_questions)):
+            current_answers[i] = st.text_area(label=follow_up_questions[i], placeholder="Enter your answer here...")
+
+        if st.form_submit_button("Submit Answers", type="primary"):
+            for i in range(len(current_answers)):
+                if not current_answers[i].strip():
+                    st.error(f"Please answer question {i}.")
+                    return
+
+            st.session_state.answers = current_answers
             st.rerun()
 
 
