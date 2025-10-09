@@ -72,7 +72,11 @@ def main() -> None:
                     st.rerun()
 
     else:
-        render_chat_ui(openai_api_key=openai_api_key, risk_description=risk_description)
+        render_chat_ui(
+            openai_api_key=openai_api_key,
+            risk_description=risk_description,
+            product_description=product_description,
+        )
 
 
 if __name__ == "__main__":

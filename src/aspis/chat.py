@@ -7,7 +7,7 @@ from aspis.message import ConversationMessage, ConversationRole
 
 
 def render_chat_ui(
-    openai_api_key: str, risk_description: str
+    openai_api_key: str, risk_description: str, product_description: str
 ) -> list[ConversationMessage] | None:
     """Render the chat UI."""
     conversation = st.session_state.get("conversation", [])
@@ -20,11 +20,7 @@ def render_chat_ui(
                 content="Hello! I'm your chatbot. Here is the risk description you provided:",
             )
         )
-        conversation.append(
-            ConversationMessage(
-                role=ConversationRole.ASSISTANT, content=risk_description
-            )
-        )
+        conversation.append(ConversationMessage(role=ConversationRole.ASSISTANT, content=risk_description))
 
     # Looping through the whole conversation and writing each message to the UI
     # with their respective roles
