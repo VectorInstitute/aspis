@@ -30,7 +30,7 @@ The user has a product that they described as follows:
 They are concerned about the following AI risk:
 {risk_description}
 
-You as an AI risk analist, should think about this problem in the context of the following paper:
+You as an AI risk analyst, should think about this problem in the context of the following paper:
 {sistematization_paper}
 
 The product description and the risk description are the background concepts.
