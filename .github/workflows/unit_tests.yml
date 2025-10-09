@@ -41,10 +41,10 @@ jobs:
   unit-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4.2.2
+      - uses: actions/checkout@v5.0.0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb
+        uses: astral-sh/setup-uv@557e51de59eb14aaaba2ed9621916900a91d50c6
         with:
           # Install a specific version of uv.
           version: "0.5.21"
@@ -60,11 +60,11 @@ jobs:
 
       - name: Install dependencies and check code
         run: |
-          uv run pytest -m "not integration_test" --cov src/aieng_template_uv --cov-report=xml tests
+          uv run pytest -m "not integration_test" --cov src/aspis --cov-report=xml tests
 
       # Uncomment this once this repo is configured on Codecov
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: VectorInstitute/aieng-template-uv
