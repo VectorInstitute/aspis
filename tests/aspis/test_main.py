@@ -97,7 +97,7 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_get_sistematiza
     assert app.session_state.openai_api_key == test_api_key
     assert app.session_state.risk_description == test_risk_description
     assert app.session_state.product_description == test_product_description
-    assert mock_get_sistematization_questions.has_been_called
+    assert mock_get_sistematization_questions.called
 
 
 @patch("aspis.sistematization.get_sistematization_questions")
@@ -114,7 +114,7 @@ def test_main_render_error_when_questions_are_none(mock_get_sistematization_ques
     app.button[0].click()
     app.run()
 
-    assert mock_get_sistematization_questions.has_been_called_with(
+    mock_get_sistematization_questions.assert_called_with(
         product_description="test product description",
         risk_description="test risk description",
         openai_api_key="test api key",
@@ -137,7 +137,7 @@ def test_main_render_questions_on_success(mock_get_sistematization_questions: Mo
     app.button[0].click()
     app.run()
 
-    assert mock_get_sistematization_questions.has_been_called_with(
+    mock_get_sistematization_questions.assert_called_with(
         product_description="test product description",
         risk_description="test risk description",
         openai_api_key="test api key",
