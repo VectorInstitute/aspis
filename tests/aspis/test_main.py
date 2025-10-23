@@ -1,4 +1,4 @@
-"""Test for main module."""
+"""Test for the main module."""
 
 from unittest.mock import Mock, patch
 
