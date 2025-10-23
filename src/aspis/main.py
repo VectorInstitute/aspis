@@ -43,7 +43,7 @@ def render_landing_page() -> None:
             placeholder="Enter your product description here...",
             help=(
                 "Your product description is used to generate a measurement instrument for an AI risk."
-                + "Please describe your product in a comprehensive way."
+                 " Please describe your product in a comprehensive way."
             ),
         )
 
