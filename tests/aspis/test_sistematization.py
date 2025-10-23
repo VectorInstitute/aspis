@@ -44,9 +44,63 @@ def test_get_sistematization_questions_success(mock_get_llm: Mock) -> None:
 
 
 @patch("aspis.sistematization.get_llm")
-def test_get_sistematization_questions_failure(mock_get_llm: Mock) -> None:
+def test_get_sistematization_questions_failure_not_a_json(mock_get_llm: Mock) -> None:
     invoke_mock = Mock()
     invoke_mock.return_value = Mock(content="invalid json")
+    mock_get_llm.return_value = Mock(invoke=invoke_mock)
+
+    test_product_description = "test product description"
+    test_risk_description = "test risk description"
+    test_openai_api_key = "test api key"
+
+    questions = get_sistematization_questions(
+        product_description=test_product_description,
+        risk_description=test_risk_description,
+        openai_api_key=test_openai_api_key,
+    )
+
+    assert questions is None
+    assert mock_get_llm.has_been_called_once_with(test_openai_api_key)
+    assert invoke_mock.has_been_called_once_with(
+        SISTEMATIZATION_PROMPT.format(
+            product_description=test_product_description,
+            risk_description=test_risk_description,
+            sistematization_paper=SISTEMATIZATION_PAPER_PATH.read_text(),
+        )
+    )
+
+
+@patch("aspis.sistematization.get_llm")
+def test_get_sistematization_questions_failure_not_a_list(mock_get_llm: Mock) -> None:
+    invoke_mock = Mock()
+    invoke_mock.return_value = Mock(content='{"invalid": "json"}')
+    mock_get_llm.return_value = Mock(invoke=invoke_mock)
+
+    test_product_description = "test product description"
+    test_risk_description = "test risk description"
+    test_openai_api_key = "test api key"
+
+    questions = get_sistematization_questions(
+        product_description=test_product_description,
+        risk_description=test_risk_description,
+        openai_api_key=test_openai_api_key,
+    )
+
+    assert questions is None
+    assert mock_get_llm.has_been_called_once_with(test_openai_api_key)
+    assert invoke_mock.has_been_called_once_with(
+        SISTEMATIZATION_PROMPT.format(
+            product_description=test_product_description,
+            risk_description=test_risk_description,
+            sistematization_paper=SISTEMATIZATION_PAPER_PATH.read_text(),
+        )
+    )
+
+
+@patch("aspis.sistematization.get_llm")
+def test_get_sistematization_questions_failure_not_a_list_of_strings(mock_get_llm: Mock) -> None:
+    invoke_mock = Mock()
+    invoke_mock.return_value = Mock(content='[{"invalid": "json"}]')
     mock_get_llm.return_value = Mock(invoke=invoke_mock)
 
     test_product_description = "test product description"

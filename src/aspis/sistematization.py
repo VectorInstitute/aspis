@@ -78,10 +78,16 @@ def get_sistematization_questions(
     logger.info(f"Model response: {response.content}")
 
     try:
-        return json.loads(str(response.content))
-    except Exception as e:
-        logger.exception(f"Error parsing the response from the model: {e}. Model response: {response.content}")
+        parsed_response = json.loads(str(response.content))
+    except Exception:
+        logger.exception(f"Error parsing the response from the model: '{response.content}'")
         return None
+
+    if not isinstance(parsed_response, list) or not all(isinstance(q, str) for q in parsed_response):
+        logger.error(f"Response is not a list of strings: '{response.content}'")
+        return None
+
+    return parsed_response
 
 
 def get_llm(api_key: str) -> BaseChatModel:

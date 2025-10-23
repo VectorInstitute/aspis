@@ -43,6 +43,7 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_get_sistematiza
     test_api_key = "test api key"
     test_risk_description = "test risk description"
     test_product_description = "test product description"
+    mock_get_sistematization_questions.return_value = ["test question"]
 
     # Empty API key
     app = AppTest.from_file("src/aspis/main.py")
@@ -142,7 +143,7 @@ def test_main_render_questions_on_success(mock_get_sistematization_questions: Mo
         openai_api_key="test api key",
     )
     for i in range(len(test_questions)):
-        assert app.text_area[i].label == test_questions[i]
+        assert app.text_area[i].label == rf"{i + 1}\. {test_questions[i]}"
 
 
 @patch("aspis.sistematization.get_sistematization_questions")
@@ -160,11 +161,11 @@ def test_main_error_when_answers_are_empty(mock_get_sistematization_questions: M
     app.button[0].click()
     app.run()
 
-    app.text_area[1].set_value("test answer to question 1")
+    app.text_area[1].set_value("test answer to question 2")
     app.button[0].click()
     app.run()
 
-    assert app.error[0].value == "Please answer question 0."
+    assert app.error[0].value == "Please answer question 1."
 
 
 @patch("aspis.sistematization.get_sistematization_questions")
