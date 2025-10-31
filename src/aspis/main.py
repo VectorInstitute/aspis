@@ -93,8 +93,7 @@ def render_landing_page() -> None:
 
 
 def render_follow_up_questions(follow_up_questions: list[str]) -> None:
-    """
-    Render the follow up questions to be asked to the user.
+    """Render the follow up questions to be asked to the user.
 
     Args:
         follow_up_questions: The follow up questions.
