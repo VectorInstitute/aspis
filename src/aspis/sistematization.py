@@ -53,16 +53,14 @@ def get_sistematization_questions(
     risk_description: str,
     openai_api_key: str,
 ) -> list[str] | None:
-    """
-    Get the sistematization questions.
+    """Get the sistematization questions.
 
     Args:
         product_description: The description of the AI-powered product.
         risk_description: The description of the AI risk the product is exposed to.
         openai_api_key: The OpenAI API key to use the LLM.
 
-    Returns
-    -------
+    Returns:
         The follow up sistematization questions. Will be None if the model fails to
         return a valid JSON.
     """
@@ -91,14 +89,12 @@ def get_sistematization_questions(
 
 
 def get_llm(api_key: str) -> BaseChatModel:
-    """
-    Get the LLM object.
+    """Get the LLM object.
 
     Args:
         api_key: The OpenAI API key to set up the LLM.
 
-    Returns
-    -------
+    Returns:
         The LLM.
     """
     return ChatOpenAI(model=MODEL, temperature=TEMPERATURE, api_key=SecretStr(api_key))

@@ -7,8 +7,7 @@ import pytest
 def my_test_number() -> int:
     """My test number.
 
-    Returns
-    -------
-        int: A really awesome number.
+    Returns:
+        A really awesome number.
     """
     return 42
