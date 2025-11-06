@@ -2,6 +2,7 @@
 
 import json
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 
 from langchain.prompts import ChatPromptTemplate
@@ -47,6 +48,42 @@ Please reply with a maximum of 5 questions in the following JSON format:
 """
 )
 
+SISTEMATIZED_CONCEPTS_PROMPT = ChatPromptTemplate.from_template(
+    """
+You are an AI risk analyst.
+The user has a product that they described as follows:
+{product_description}
+
+They are concerned about the following AI risk:
+{risk_description}
+
+You as an AI risk analyst, should think about this problem in the context of the following paper:
+{sistematization_paper}
+
+The product description and the risk description are the background concepts.
+The user has answered the following follow-up questions:
+{questions_and_answers}
+
+Based on the background concepts and the answers provided, your goal is to create systematized concepts.
+According to the paper, systematized concepts are "specific formulation of the concept[, which] commonly involves an explicit definition."
+The systematized concepts should break down the background concepts into specific, well-defined concepts that can be operationalized into a measurement instrument.
+
+Please generate systematized concepts in the following JSON format:
+[
+  {{
+    "title": "Title of the systematized concept",
+    "body": "Detailed description and definition of the systematized concept, including specific characteristics, patterns, or criteria that define it."
+  }},
+  {{
+    "title": "Another systematized concept title",
+    "body": "Another detailed description..."
+  }}
+]
+
+Generate 3-5 systematized concepts that comprehensively cover the risk in the context of the product.
+"""
+)
+
 
 def get_sistematization_questions(
     product_description: str,
@@ -81,6 +118,66 @@ def get_sistematization_questions(
         return json.loads(str(response.content))
     except Exception as e:
         logger.exception(f"Error parsing the response from the model: {e}. Model response: {response.content}")
+        return None
+
+
+@dataclass
+class SistematizedConcept:
+    """A systematized concept with a title and body."""
+
+    title: str
+    body: str
+
+
+def get_sistematized_concepts(
+    product_description: str,
+    risk_description: str,
+    questions: list[str],
+    answers: list[str],
+    openai_api_key: str,
+) -> list[SistematizedConcept] | None:
+    """
+    Generate systematized concepts from the answers to follow-up questions.
+
+    Args:
+        product_description: The description of the AI-powered product.
+        risk_description: The description of the AI risk the product is exposed to.
+        questions: The follow-up questions that were asked.
+        answers: The answers provided by the user.
+        openai_api_key: The OpenAI API key to use the LLM.
+
+    Returns
+    -------
+        A list of systematized concepts with titles and bodies. Will be None if the model
+        fails to return a valid JSON.
+    """
+    # Format questions and answers for the prompt
+    questions_and_answers = "\n".join(
+        [f"Q: {q}\nA: {a}" for q, a in zip(questions, answers)]
+    )
+
+    llm = get_llm(openai_api_key)
+    response = llm.invoke(
+        SISTEMATIZED_CONCEPTS_PROMPT.format(
+            product_description=product_description,
+            risk_description=risk_description,
+            sistematization_paper=SISTEMATIZATION_PAPER_PATH.read_text(),
+            questions_and_answers=questions_and_answers,
+        )
+    )
+
+    logger.info(f"Model response: {response.content}")
+
+    try:
+        concepts_data = json.loads(str(response.content))
+        return [
+            SistematizedConcept(title=concept["title"], body=concept["body"])
+            for concept in concepts_data
+        ]
+    except Exception as e:
+        logger.exception(
+            f"Error parsing the response from the model: {e}. Model response: {response.content}"
+        )
         return None
 
 
