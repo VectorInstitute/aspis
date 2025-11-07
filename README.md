@@ -39,3 +39,15 @@ streamlit run src/aspis/main.py
 ```
 
 The app will be available at `http://localhost:8501`.
+
+### Running the API
+
+Aspis also has an API that can run endpoints for evaluations. To start the API server,
+use the command below:
+
+```bash
+fastapi dev src/aspis/api/main.py
+```
+
+The API will be available at `http://localhost:8000/api`. To see the documentation for the
+available endpoints, you can access `http://localhost:8000/docs` on your browser.
