@@ -45,7 +45,7 @@ streamlit run src/aspis/main.py
 ```
 
 ```bash
-fastapi dev src/aspis/api/main.py --forwarded-allow-ips="*" --proxy-headers
+fastapi dev src/aspis/api/main.py --forwarded-allow-ips="*" --proxy-headers --root-path /api
 ```
 
 
