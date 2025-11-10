@@ -8,7 +8,7 @@ from fastapi import FastAPI
 app = FastAPI()
 
 
-@app.get("/api")
-async def api_root() -> dict[str, Any]:
-    """Root endpoint for the API."""
+@app.get("/test")
+async def test_api() -> dict[str, Any]:
+    """Test endpoint for the API."""
     return {"message": "Hello World"}

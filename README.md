@@ -49,5 +49,6 @@ use the command below:
 fastapi dev src/aspis/api/main.py
 ```
 
-The API will be available at `http://localhost:8000/api`. To see the documentation for the
-available endpoints, you can access `http://localhost:8000/docs` on your browser.
+The API will be available at port `8080`, for example: http://localhost:8000/test`.
+To see the documentation for the available endpoints, you can access `http://localhost:8000/docs`
+on your browser.
