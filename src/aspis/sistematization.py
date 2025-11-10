@@ -74,18 +74,18 @@ def get_sistematization_questions(
     )
     raw_response = response.content
 
-    logger.info(f"Model's raw response: {response.content}")
+    logger.info(f"Model's raw response: {raw_response}")
 
     assert isinstance(raw_response, str)
     cleaned_response = clean_model_output(raw_response)
     try:
         parsed_response = json.loads(cleaned_response)
     except Exception:
-        logger.exception(f"Error parsing the response from the model: '{response.content}'")
+        logger.exception(f"Error parsing the response from the model: '{cleaned_response}'")
         return None
 
     if not isinstance(parsed_response, list) or not all(isinstance(q, str) for q in parsed_response):
-        logger.error(f"Response is not a list of strings: '{response.content}'")
+        logger.error(f"Response is not a list of strings: '{cleaned_response}'")
         return None
 
     return parsed_response
