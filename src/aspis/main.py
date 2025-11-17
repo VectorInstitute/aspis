@@ -161,6 +161,14 @@ def render_sistematized_concepts(sistematized_concepts: list[SistematizedConcept
         with st.container():
             st.markdown(f"#### {i}. {concept.title}")
             st.markdown(concept.body)
+            
+            with st.expander("📝 Measurement Prompt Template", expanded=False):
+                st.markdown("**Use this prompt template with an LLM judge to measure this concept:**")
+                st.code(concept.prompt_template, language="text")
+                st.markdown(
+                    "*Replace `<text_to_evaluate/>` with the text you want to evaluate.*"
+                )
+            
             st.divider()
 
 

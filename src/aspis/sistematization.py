@@ -18,7 +18,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-MODEL = "gpt-3.5-turbo"
+MODEL = "gpt-4o"
+# MODEL = "gpt-3.5-turbo"
 TEMPERATURE = 0.7
 SISTEMATIZATION_PAPER_PATH = Path("src/aspis/data/sistematization_paper.txt")
 
@@ -72,15 +73,18 @@ Please generate systematized concepts in the following JSON format:
 [
   {{
     "title": "Title of the systematized concept",
-    "body": "Detailed description and definition of the systematized concept, including specific characteristics, patterns, or criteria that define it."
+    "body": "Detailed description and definition of the systematized concept, including specific characteristics, patterns, or criteria that define it.",
+    "prompt_template": "A complete prompt template for using an LLM as a judge to measure this concept. The template should: 1) Include the actual product description and risk description (use the values provided above, not placeholders), 2) Include the systematized concept definition (the 'body' of this concept), 3) Provide clear instructions for the LLM judge on what to evaluate and how, 4) Include the placeholder <text_to_evaluate/> where the text to be evaluated will be inserted, 5) Specify the exact output format expected (e.g., 'Output a numerical score from 0.0 to 1.0 where 0.0 means...' or 'Output YES or NO followed by a brief explanation'). The prompt should be complete and ready to use after replacing {{text_to_evaluate}}."
   }},
   {{
     "title": "Another systematized concept title",
-    "body": "Another detailed description..."
+    "body": "Another detailed description...",
+    "prompt_template": "Another prompt template..."
   }}
 ]
 
 Generate 3-5 systematized concepts that comprehensively cover the risk in the context of the product.
+Each prompt_template should be a complete, ready-to-use prompt string. IMPORTANT: In the prompt_template string you generate in your JSON response, include the literal placeholder <text_to_evaluate/> that users will replace with actual text when using the template. The prompt should be self-contained and include all necessary context.
 """
 )
 
@@ -123,10 +127,11 @@ def get_sistematization_questions(
 
 @dataclass
 class SistematizedConcept:
-    """A systematized concept with a title and body."""
+    """A systematized concept with a title, body, and prompt template for LLM measurement."""
 
     title: str
     body: str
+    prompt_template: str
 
 
 def get_sistematized_concepts(
@@ -148,7 +153,7 @@ def get_sistematized_concepts(
 
     Returns
     -------
-        A list of systematized concepts with titles and bodies. Will be None if the model
+        A list of systematized concepts with titles, bodies, and prompt templates. Will be None if the model
         fails to return a valid JSON.
     """
     # Format questions and answers for the prompt
@@ -171,7 +176,11 @@ def get_sistematized_concepts(
     try:
         concepts_data = json.loads(str(response.content))
         return [
-            SistematizedConcept(title=concept["title"], body=concept["body"])
+            SistematizedConcept(
+                title=concept["title"],
+                body=concept["body"],
+                prompt_template=concept["prompt_template"],
+            )
             for concept in concepts_data
         ]
     except Exception as e:
