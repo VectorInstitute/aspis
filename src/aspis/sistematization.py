@@ -17,7 +17,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-MODEL = "gpt-3.5-turbo"
+MODEL = "gpt-4o-mini"
 TEMPERATURE = 0.7
 SISTEMATIZATION_PAPER_PATH = Path("src/aspis/data/sistematization_paper.txt")
 
@@ -72,17 +72,20 @@ def get_sistematization_questions(
             sistematization_paper=SISTEMATIZATION_PAPER_PATH.read_text(),
         )
     )
+    raw_response = response.content
 
-    logger.info(f"Model response: {response.content}")
+    logger.info(f"Model's raw response: {raw_response}")
 
+    assert isinstance(raw_response, str)
+    cleaned_response = clean_model_output(raw_response)
     try:
-        parsed_response = json.loads(str(response.content))
+        parsed_response = json.loads(cleaned_response)
     except Exception:
-        logger.exception(f"Error parsing the response from the model: '{response.content}'")
+        logger.exception(f"Error parsing the response from the model: '{cleaned_response}'")
         return None
 
     if not isinstance(parsed_response, list) or not all(isinstance(q, str) for q in parsed_response):
-        logger.error(f"Response is not a list of strings: '{response.content}'")
+        logger.error(f"Response is not a list of strings: '{cleaned_response}'")
         return None
 
     return parsed_response
@@ -98,3 +101,17 @@ def get_llm(api_key: str) -> BaseChatModel:
         The LLM.
     """
     return ChatOpenAI(model=MODEL, temperature=TEMPERATURE, api_key=SecretStr(api_key))
+
+
+def clean_model_output(output: str) -> str:
+    """Clean the raw output of the model.
+
+    Args:
+        output: The raw output of the model.
+
+    Returns:
+        The cleaned output.
+    """
+    cleaned_output = str(output)
+    cleaned_output = cleaned_output.replace("```json", "").replace("```", "")
+    return cleaned_output.strip()

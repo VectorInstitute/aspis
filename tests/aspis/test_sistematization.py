@@ -17,30 +17,38 @@ from aspis.sistematization import (
 
 @patch("aspis.sistematization.get_llm")
 def test_get_sistematization_questions_success(mock_get_llm: Mock) -> None:
-    invoke_mock = Mock()
-    invoke_mock.return_value = Mock(content='["test question 1", "test question 2"]')
-    mock_get_llm.return_value = Mock(invoke=invoke_mock)
+    model_responses = [
+        '["test question 1", "test question 2"]',
+        '```json ["test question 1", "test question 2"]   ```  ',
+    ]
 
-    test_product_description = "test product description"
-    test_risk_description = "test risk description"
-    test_openai_api_key = "test api key"
+    for model_response in model_responses:
+        invoke_mock = Mock()
+        invoke_mock.return_value = Mock(content=model_response)
+        mock_get_llm.return_value = Mock(invoke=invoke_mock)
 
-    questions = get_sistematization_questions(
-        product_description=test_product_description,
-        risk_description=test_risk_description,
-        openai_api_key=test_openai_api_key,
-    )
+        test_product_description = "test product description"
+        test_risk_description = "test risk description"
+        test_openai_api_key = "test api key"
 
-    assert questions == ["test question 1", "test question 2"]
-
-    mock_get_llm.assert_called_once_with(test_openai_api_key)
-    invoke_mock.assert_called_once_with(
-        SISTEMATIZATION_PROMPT.format(
+        questions = get_sistematization_questions(
             product_description=test_product_description,
             risk_description=test_risk_description,
-            sistematization_paper=SISTEMATIZATION_PAPER_PATH.read_text(),
+            openai_api_key=test_openai_api_key,
         )
-    )
+
+        assert questions == ["test question 1", "test question 2"]
+
+        mock_get_llm.assert_called_once_with(test_openai_api_key)
+        invoke_mock.assert_called_once_with(
+            SISTEMATIZATION_PROMPT.format(
+                product_description=test_product_description,
+                risk_description=test_risk_description,
+                sistematization_paper=SISTEMATIZATION_PAPER_PATH.read_text(),
+            )
+        )
+
+        mock_get_llm.reset_mock()
 
 
 @patch("aspis.sistematization.get_llm")
