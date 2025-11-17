@@ -5,7 +5,7 @@
 [![code checks](https://github.com/VectorInstitute/aspis/actions/workflows/code_checks.yml/badge.svg)](https://github.com/VectorInstitute/aspis/actions/workflows/code_checks.yml)
 [![integration tests](https://github.com/VectorInstitute/aspis/actions/workflows/integration_tests.yml/badge.svg)](https://github.com/VectorInstitute/aspis/actions/workflows/integration_tests.yml)
 [![docs](https://github.com/VectorInstitute/aspis/actions/workflows/docs.yml/badge.svg)](https://github.com/VectorInstitute/aspis/actions/workflows/docs.yml)
-[![codecov](https://codecov.io/github/VectorInstitute/aspis/graph/badge.svg?token=83MYFZ3UPA)](https://codecov.io/github/VectorInstitute/aspis)
+[![codecov](https://codecov.io/gh/VectorInstitute/aspis/graph/badge.svg?token=nKpBEtl2Ah)](https://codecov.io/github/VectorInstitute/aspis)
 ![GitHub License](https://img.shields.io/github/license/VectorInstitute/aspis)
 
 

@@ -116,8 +116,7 @@ def render_landing_page() -> None:
 
 
 def render_follow_up_questions(follow_up_questions: list[str]) -> None:
-    """
-    Render the follow up questions to be asked to the user.
+    """Render the follow up questions to be asked to the user.
 
     Args:
         follow_up_questions: The follow up questions.
@@ -128,14 +127,14 @@ def render_follow_up_questions(follow_up_questions: list[str]) -> None:
         current_answers = [""] * len(follow_up_questions)
         for i in range(len(follow_up_questions)):
             current_answers[i] = st.text_area(
-                label=follow_up_questions[i],
+                label=rf"{i + 1}\. {follow_up_questions[i]}",
                 placeholder="Enter your answer here...",
             )
 
         if st.form_submit_button("Submit Answers", type="primary"):
             for i in range(len(current_answers)):
                 if not current_answers[i].strip():
-                    st.error(f"Please answer question {i}.")
+                    st.error(f"Please answer question {i + 1}.")
                     return
 
             st.session_state.sistematization_answers = current_answers
@@ -143,8 +142,7 @@ def render_follow_up_questions(follow_up_questions: list[str]) -> None:
 
 
 def render_sistematized_concepts(sistematized_concepts: list[SistematizedConcept]) -> None:
-    """
-    Render the systematized concepts with titles and bodies.
+    """Render the systematized concepts with titles and bodies.
 
     Args:
         sistematized_concepts: The list of systematized concepts to display.
@@ -161,14 +159,12 @@ def render_sistematized_concepts(sistematized_concepts: list[SistematizedConcept
         with st.container():
             st.markdown(f"#### {i}. {concept.title}")
             st.markdown(concept.body)
-            
+
             with st.expander("📝 Measurement Prompt Template", expanded=False):
                 st.markdown("**Use this prompt template with an LLM judge to measure this concept:**")
                 st.code(concept.prompt_template, language="text")
-                st.markdown(
-                    "*Replace `<text_to_evaluate/>` with the text you want to evaluate.*"
-                )
-            
+                st.markdown("*Replace `<text_to_evaluate/>` with the text you want to evaluate.*")
+
             st.divider()
 
 

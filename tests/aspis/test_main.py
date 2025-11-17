@@ -1,4 +1,4 @@
-"""Test for main module."""
+"""Test for the main module."""
 
 from unittest.mock import Mock, patch
 
@@ -142,7 +142,7 @@ def test_main_render_questions_on_success(mock_get_sistematization_questions: Mo
         openai_api_key="test api key",
     )
     for i in range(len(test_questions)):
-        assert app.text_area[i].label == test_questions[i]
+        assert app.text_area[i].label == rf"{i + 1}\. {test_questions[i]}"
 
 
 @patch("aspis.sistematization.get_sistematization_questions")
@@ -164,7 +164,7 @@ def test_main_error_when_answers_are_empty(mock_get_sistematization_questions: M
     app.button[0].click()
     app.run()
 
-    assert app.error[0].value == "Please answer question 0."
+    assert app.error[0].value == "Please answer question 1."
 
 
 @patch("aspis.sistematization.get_sistematization_questions")

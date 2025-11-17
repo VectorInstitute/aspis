@@ -94,15 +94,14 @@ def get_sistematization_questions(
     risk_description: str,
     openai_api_key: str,
 ) -> list[str] | None:
-    """
-    Get the sistematization questions.
+    """Get the sistematization questions.
 
     Args:
         product_description: The description of the AI-powered product.
         risk_description: The description of the AI risk the product is exposed to.
         openai_api_key: The OpenAI API key to use the LLM.
 
-    Returns
+    Returns:
     -------
         The follow up sistematization questions. Will be None if the model fails to
         return a valid JSON.
@@ -115,19 +114,31 @@ def get_sistematization_questions(
             sistematization_paper=SISTEMATIZATION_PAPER_PATH.read_text(),
         )
     )
+    raw_response = response.content
 
-    logger.info(f"Model response: {response.content}")
+    logger.info(f"Model's raw response: {raw_response}")
 
+    assert isinstance(raw_response, str)
+    cleaned_response = clean_model_output(raw_response)
     try:
-        return json.loads(str(response.content))
+        parsed_response = json.loads(cleaned_response)
     except Exception as e:
-        logger.exception(f"Error parsing the response from the model: {e}. Model response: {response.content}")
+        logger.exception(f"Error parsing the response from the model: {e}. Model response: {cleaned_response}")
         return None
+
+    if not isinstance(parsed_response, list) or not all(isinstance(q, str) for q in parsed_response):
+        logger.error(f"Response is not a list of strings: '{cleaned_response}'")
+        return None
+
+    return parsed_response
 
 
 @dataclass
 class SistematizedConcept:
-    """A systematized concept with a title, body, and prompt template for LLM measurement."""
+    """A systematized concept with a title, body, and prompt template.
+
+    Used for LLM measurement.
+    """
 
     title: str
     body: str
@@ -141,8 +152,7 @@ def get_sistematized_concepts(
     answers: list[str],
     openai_api_key: str,
 ) -> list[SistematizedConcept] | None:
-    """
-    Generate systematized concepts from the answers to follow-up questions.
+    """Generate systematized concepts from the answers to follow-up questions.
 
     Args:
         product_description: The description of the AI-powered product.
@@ -151,15 +161,13 @@ def get_sistematized_concepts(
         answers: The answers provided by the user.
         openai_api_key: The OpenAI API key to use the LLM.
 
-    Returns
+    Returns:
     -------
-        A list of systematized concepts with titles, bodies, and prompt templates. Will be None if the model
-        fails to return a valid JSON.
+        A list of systematized concepts with titles, bodies, and prompt templates.
+        Will be None if the model fails to return a valid JSON.
     """
     # Format questions and answers for the prompt
-    questions_and_answers = "\n".join(
-        [f"Q: {q}\nA: {a}" for q, a in zip(questions, answers)]
-    )
+    questions_and_answers = "\n".join([f"Q: {q}\nA: {a}" for q, a in zip(questions, answers)])
 
     llm = get_llm(openai_api_key)
     response = llm.invoke(
@@ -170,11 +178,14 @@ def get_sistematized_concepts(
             questions_and_answers=questions_and_answers,
         )
     )
+    raw_response = response.content
 
-    logger.info(f"Model response: {response.content}")
+    logger.info(f"Model's raw response: {raw_response}")
 
     try:
-        concepts_data = json.loads(str(response.content))
+        assert isinstance(raw_response, str)
+        cleaned_response = clean_model_output(raw_response)
+        concepts_data = json.loads(cleaned_response)
         return [
             SistematizedConcept(
                 title=concept["title"],
@@ -184,21 +195,32 @@ def get_sistematized_concepts(
             for concept in concepts_data
         ]
     except Exception as e:
-        logger.exception(
-            f"Error parsing the response from the model: {e}. Model response: {response.content}"
-        )
+        logger.exception(f"Error parsing the response from the model: {e}. Model response: {raw_response}")
         return None
 
 
 def get_llm(api_key: str) -> BaseChatModel:
-    """
-    Get the LLM object.
+    """Get the LLM object.
 
     Args:
         api_key: The OpenAI API key to set up the LLM.
 
-    Returns
+    Returns:
     -------
         The LLM.
     """
     return ChatOpenAI(model=MODEL, temperature=TEMPERATURE, api_key=SecretStr(api_key))
+
+
+def clean_model_output(output: str) -> str:
+    """Clean the raw output of the model.
+
+    Args:
+        output: The raw output of the model.
+
+    Returns:
+        The cleaned output.
+    """
+    cleaned_output = str(output)
+    cleaned_output = cleaned_output.replace("```json", "").replace("```", "")
+    return cleaned_output.strip()
