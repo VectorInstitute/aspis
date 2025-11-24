@@ -19,7 +19,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 MODEL = "gpt-4o"
-# MODEL = "gpt-3.5-turbo"
 TEMPERATURE = 0.7
 SISTEMATIZATION_PAPER_PATH = Path("src/aspis/data/sistematization_paper.txt")
 
@@ -102,7 +101,6 @@ def get_sistematization_questions(
         openai_api_key: The OpenAI API key to use the LLM.
 
     Returns:
-    -------
         The follow up sistematization questions. Will be None if the model fails to
         return a valid JSON.
     """
@@ -162,7 +160,6 @@ def get_sistematized_concepts(
         openai_api_key: The OpenAI API key to use the LLM.
 
     Returns:
-    -------
         A list of systematized concepts with titles, bodies, and prompt templates.
         Will be None if the model fails to return a valid JSON.
     """
@@ -206,7 +203,6 @@ def get_llm(api_key: str) -> BaseChatModel:
         api_key: The OpenAI API key to set up the LLM.
 
     Returns:
-    -------
         The LLM.
     """
     return ChatOpenAI(model=MODEL, temperature=TEMPERATURE, api_key=SecretStr(api_key))

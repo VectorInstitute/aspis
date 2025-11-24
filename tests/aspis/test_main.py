@@ -43,6 +43,7 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_get_sistematiza
     test_api_key = "test api key"
     test_risk_description = "test risk description"
     test_product_description = "test product description"
+    mock_get_sistematization_questions.return_value = ["test question"]
 
     # Empty API key
     app = AppTest.from_file("src/aspis/main.py")
@@ -96,7 +97,7 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_get_sistematiza
     assert app.session_state.openai_api_key == test_api_key
     assert app.session_state.risk_description == test_risk_description
     assert app.session_state.product_description == test_product_description
-    assert mock_get_sistematization_questions.has_been_called
+    mock_get_sistematization_questions.assert_called()
 
 
 @patch("aspis.sistematization.get_sistematization_questions")
@@ -113,7 +114,7 @@ def test_main_render_error_when_questions_are_none(mock_get_sistematization_ques
     app.button[0].click()
     app.run()
 
-    assert mock_get_sistematization_questions.has_been_called_with(
+    mock_get_sistematization_questions.assert_called_with(
         product_description="test product description",
         risk_description="test risk description",
         openai_api_key="test api key",
@@ -136,7 +137,7 @@ def test_main_render_questions_on_success(mock_get_sistematization_questions: Mo
     app.button[0].click()
     app.run()
 
-    assert mock_get_sistematization_questions.has_been_called_with(
+    mock_get_sistematization_questions.assert_called_with(
         product_description="test product description",
         risk_description="test risk description",
         openai_api_key="test api key",
@@ -147,7 +148,7 @@ def test_main_render_questions_on_success(mock_get_sistematization_questions: Mo
 
 @patch("aspis.sistematization.get_sistematization_questions")
 def test_main_error_when_answers_are_empty(mock_get_sistematization_questions: Mock) -> None:
-    test_questions = ["test question 0", "test question 1"]
+    test_questions = ["test question 1", "test question 2"]
     mock_get_sistematization_questions.return_value = test_questions
 
     app = AppTest.from_file("src/aspis/main.py")
@@ -160,7 +161,7 @@ def test_main_error_when_answers_are_empty(mock_get_sistematization_questions: M
     app.button[0].click()
     app.run()
 
-    app.text_area[1].set_value("test answer to question 1")
+    app.text_area[1].set_value("test answer to question 2")
     app.button[0].click()
     app.run()
 

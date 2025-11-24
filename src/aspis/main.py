@@ -42,7 +42,7 @@ def main() -> None:
 
     else:
         # Generate questions if not already generated
-        if follow_up_questions is None:
+        if follow_up_questions is None or len(follow_up_questions) == 0:
             with st.spinner("Generating questions..."):
                 follow_up_questions = get_sistematization_questions(
                     openai_api_key=openai_api_key,
@@ -50,11 +50,11 @@ def main() -> None:
                     product_description=product_description,
                 )
 
-            if follow_up_questions is None:
+            if follow_up_questions is None or len(follow_up_questions) == 0:
                 st.error("Error generating questions. Please try again.")
                 return
 
-            st.session_state.follow_up_questions = follow_up_questions
+        st.session_state.follow_up_questions = follow_up_questions
 
         render_follow_up_questions(follow_up_questions)
 
@@ -69,8 +69,8 @@ def render_landing_page() -> None:
             label="What is the description of your AI-powered product?",
             placeholder="Enter your product description here...",
             help=(
-                "Your product description is used to generate a measurement instrument for an AI risk."
-                + "Please describe your product in a comprehensive way."
+                "Your product description is used to generate a measurement instrument for an AI risk. "
+                "Please describe your product in a comprehensive way."
             ),
         )
 
@@ -79,8 +79,8 @@ def render_landing_page() -> None:
             label="What is the AI risk you want to create a measurement instrument for?",
             placeholder="Enter your risk description here...",
             help=(
-                "Your risk description is used to generate a risk assessment. Please describe the"
-                + "AI risk your product is exposed to in order to generate a measurement instrument."
+                "Your risk description is used to generate a risk assessment. Please describe the "
+                "AI risk your product is exposed to in order to generate a measurement instrument."
             ),
         )
 
