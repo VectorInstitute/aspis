@@ -4,6 +4,8 @@ from unittest.mock import Mock, patch
 
 from streamlit.testing.v1 import AppTest
 
+from aspis.sistematization import SistematizedConcept
+
 
 def test_main_render_inputs_when_empty() -> None:
     app = AppTest.from_file("src/aspis/main.py")
@@ -124,7 +126,7 @@ def test_main_render_error_when_questions_are_none(mock_get_sistematization_ques
 
 @patch("aspis.sistematization.get_sistematization_questions")
 def test_main_render_questions_on_success(mock_get_sistematization_questions: Mock) -> None:
-    test_questions = ["test question 0", "test question 1"]
+    test_questions = ["test question 1", "test question 2"]
     mock_get_sistematization_questions.return_value = test_questions
 
     app = AppTest.from_file("src/aspis/main.py")
@@ -169,10 +171,15 @@ def test_main_error_when_answers_are_empty(mock_get_sistematization_questions: M
 
 
 @patch("aspis.sistematization.get_sistematization_questions")
-def test_main_saves_answers_on_success(mock_get_sistematization_questions: Mock) -> None:
-    test_questions = ["test question 0", "test question 1"]
-    test_answers = ["test answer to question 0", "test answer to question 1"]
+@patch("aspis.sistematization.get_sistematized_concepts")
+def test_main_saves_answers_on_success(
+    mock_get_sistematized_concepts: Mock,
+    mock_get_sistematization_questions: Mock,
+) -> None:
+    test_questions = ["test question 1", "test question 2"]
+    test_answers = ["test answer to question 1", "test answer to question 2"]
     mock_get_sistematization_questions.return_value = test_questions
+    mock_get_sistematized_concepts.return_value = []
 
     app = AppTest.from_file("src/aspis/main.py")
     app.run()
@@ -190,3 +197,61 @@ def test_main_saves_answers_on_success(mock_get_sistematization_questions: Mock)
     app.run()
 
     assert app.session_state.sistematization_answers == test_answers
+
+
+@patch("aspis.sistematization.get_sistematization_questions")
+@patch("aspis.sistematization.get_sistematized_concepts")
+def test_main_render_results_when_answers_are_set(
+    mock_get_sistematized_concepts: Mock,
+    mock_get_sistematization_questions: Mock,
+) -> None:
+    test_product_description = "test product description"
+    test_risk_description = "test risk description"
+    test_api_key = "test api key"
+    test_questions = ["test question 1", "test question 2"]
+    mock_get_sistematization_questions.return_value = test_questions
+
+    test_answers = ["test answer to question 1", "test answer to question 2"]
+    test_sistematized_concepts = [
+        SistematizedConcept(
+            title="test concept 1",
+            body="test body 1",
+            prompt_template="test prompt template 1",
+        ),
+        SistematizedConcept(
+            title="test concept 2",
+            body="test body 2",
+            prompt_template="test prompt template 2",
+        ),
+    ]
+    mock_get_sistematized_concepts.return_value = test_sistematized_concepts
+
+    app = AppTest.from_file("src/aspis/main.py")
+    app.run()
+
+    app.text_input[0].set_value(test_api_key)
+    app.text_area[1].set_value(test_risk_description)
+    app.text_area[0].set_value(test_product_description)
+
+    app.button[0].click()
+    app.run()
+
+    app.text_area[0].set_value(test_answers[0])
+    app.text_area[1].set_value(test_answers[1])
+    app.button[0].click()
+    app.run()
+
+    mock_get_sistematized_concepts.assert_called_with(
+        product_description=test_product_description,
+        risk_description=test_risk_description,
+        questions=test_questions,
+        answers=test_answers,
+        openai_api_key=test_api_key,
+    )
+
+    assert test_sistematized_concepts[0].title in app.markdown[2].value
+    assert app.markdown[3].value == test_sistematized_concepts[0].body
+    assert app.code[0].value == test_sistematized_concepts[0].prompt_template
+    assert test_sistematized_concepts[1].title in app.markdown[6].value
+    assert app.markdown[7].value == test_sistematized_concepts[1].body
+    assert app.code[1].value == test_sistematized_concepts[1].prompt_template

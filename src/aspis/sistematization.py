@@ -164,7 +164,7 @@ def get_sistematized_concepts(
         Will be None if the model fails to return a valid JSON.
     """
     # Format questions and answers for the prompt
-    questions_and_answers = "\n".join([f"Q: {q}\nA: {a}" for q, a in zip(questions, answers)])
+    questions_and_answers = format_questions_and_answers(questions, answers)
 
     llm = get_llm(openai_api_key)
     response = llm.invoke(
@@ -194,6 +194,19 @@ def get_sistematized_concepts(
     except Exception as e:
         logger.exception(f"Error parsing the response from the model: {e}. Model response: {raw_response}")
         return None
+
+
+def format_questions_and_answers(questions: list[str], answers: list[str]) -> str:
+    """Get the questions and answers formatted for the prompt.
+
+    Args:
+        questions: The follow-up questions that were asked.
+        answers: The answers provided by the user.
+
+    Returns:
+        The questions and answers formatted for the prompt.
+    """
+    return "\n".join([f"Q: {question}\nA: {answer}" for question, answer in zip(questions, answers)])
 
 
 def get_llm(api_key: str) -> BaseChatModel:
