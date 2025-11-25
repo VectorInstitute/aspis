@@ -17,30 +17,14 @@ def main() -> None:
     openai_api_key = st.session_state.get("openai_api_key", "")
     risk_description = st.session_state.get("risk_description", "")
     product_description = st.session_state.get("product_description", "")
-    sistematization_answers = st.session_state.get("sistematization_answers", None)
     follow_up_questions = st.session_state.get("follow_up_questions", None)
+    sistematization_answers = st.session_state.get("sistematization_answers", None)
+    sistematized_concepts = st.session_state.get("sistematized_concepts", None)
 
     if not openai_api_key or not product_description or not risk_description:
         render_landing_page()
 
-    elif sistematization_answers is not None and follow_up_questions is not None:
-        # Answers have been submitted, generate and display systematized concepts
-        with st.spinner("Generating systematized concepts..."):
-            sistematized_concepts = get_sistematized_concepts(
-                product_description=product_description,
-                risk_description=risk_description,
-                questions=follow_up_questions,
-                answers=sistematization_answers,
-                openai_api_key=openai_api_key,
-            )
-
-        if sistematized_concepts is None:
-            st.error("Error generating systematized concepts. Please try again.")
-            return
-
-        render_sistematized_concepts(sistematized_concepts)
-
-    else:
+    elif sistematization_answers is None:
         # Generate questions if not already generated
         if follow_up_questions is None or len(follow_up_questions) == 0:
             with st.spinner("Generating questions..."):
@@ -50,13 +34,33 @@ def main() -> None:
                     product_description=product_description,
                 )
 
-            if follow_up_questions is None or len(follow_up_questions) == 0:
-                st.error("Error generating questions. Please try again.")
-                return
+        if follow_up_questions is None or len(follow_up_questions) == 0:
+            st.error("Error generating questions. Please try again.")
+            return
 
         st.session_state.follow_up_questions = follow_up_questions
 
         render_follow_up_questions(follow_up_questions)
+
+    elif sistematized_concepts is None:
+        if sistematization_answers is not None and follow_up_questions is not None:
+            # Answers have been submitted, generate and display systematized concepts
+            with st.spinner("Generating systematized concepts..."):
+                sistematized_concepts = get_sistematized_concepts(
+                    product_description=product_description,
+                    risk_description=risk_description,
+                    questions=follow_up_questions,
+                    answers=sistematization_answers,
+                    openai_api_key=openai_api_key,
+                )
+
+        if sistematized_concepts is None:
+            st.error("Error generating systematized concepts. Please try again.")
+            return
+
+        st.session_state.sistematized_concepts = sistematized_concepts
+
+        render_sistematized_concepts(sistematized_concepts)
 
 
 def render_landing_page() -> None:
