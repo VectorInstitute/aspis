@@ -29,10 +29,12 @@ def main() -> None:
     sistematization_answers = st.session_state.get("sistematization_answers", None)
     sistematized_concepts = st.session_state.get("sistematized_concepts", None)
 
-    # Pages rendering
+    # Rendering the landing page
     if not openai_api_key or not product_description or not risk_description:
         render_landing_page()
+        render_upload_button()
 
+    # Generating and rendering the follow up questions
     elif sistematization_answers is None:
         # Generate questions if not already generated
         if follow_up_questions is None or len(follow_up_questions) == 0:
@@ -51,6 +53,7 @@ def main() -> None:
 
         render_follow_up_questions(follow_up_questions)
 
+    # Generating and rendering the systematized concepts
     else:
         if sistematized_concepts is None and sistematization_answers is not None and follow_up_questions is not None:
             # Answers have been submitted, generate and display systematized concepts
@@ -74,7 +77,10 @@ def main() -> None:
 
 def render_landing_page() -> None:
     """Render the landing page elements."""
-    st.markdown("Welcome to Aspis!")
+    st.markdown("##### Welcome to Aspis!")
+    st.markdown(
+        "To generate a measurement instrument for an AI risk, please start by answering the following questions:"
+    )
 
     with st.form("input_form"):
         # Product description text area
@@ -187,7 +193,7 @@ def render_sistematized_concepts(sistematized_concepts: list[SistematizedConcept
 
 
 def render_download_button() -> None:
-    """Render the download button."""
+    """Render the download button to save the results."""
     file_contents = {
         "product_description": st.session_state.product_description,
         "risk_description": st.session_state.risk_description,
@@ -203,6 +209,55 @@ def render_download_button() -> None:
         file_name="sistematized_concepts.yaml",
         mime="text/yaml",
     )
+
+
+def render_upload_button() -> None:
+    """Render the upload button to load saved results."""
+    st.markdown("##### 🗂️ Upload previously saved results:")
+    uploaded_file = st.file_uploader(
+        label="*.yaml file",
+        type=["yaml", "yml"],
+        help="Upload a previously saved YAML file to restore your results.",
+    )
+
+    if uploaded_file is None:
+        return
+
+    # Load and validate the file
+    try:
+        saved_results = yaml.load(uploaded_file, Loader=yaml.FullLoader)
+
+        required_keys = [
+            "product_description",
+            "risk_description",
+            "follow_up_questions",
+            "sistematization_answers",
+            "sistematized_concepts",
+        ]
+        for key in required_keys:
+            if key not in saved_results:
+                raise ValueError(f"Key '{key}' is missing from the saved results.")
+
+        systematized_concepts_required_keys = ["title", "body", "prompt_template"]
+        for concept in saved_results["sistematized_concepts"]:
+            for key in systematized_concepts_required_keys:
+                if key not in concept:
+                    raise ValueError(f"Key '{key}' is missing from a systematized concept in the saved results.")
+
+    except Exception as e:
+        st.error(f"Error loading saved results: {e}")
+        return
+
+    st.session_state.product_description = saved_results["product_description"]
+    st.session_state.risk_description = saved_results["risk_description"]
+    st.session_state.openai_api_key = "placeholder-key"  # We don't need the API key for this step but it can't be None
+    st.session_state.follow_up_questions = saved_results["follow_up_questions"]
+    st.session_state.sistematization_answers = saved_results["sistematization_answers"]
+    st.session_state.sistematized_concepts = [
+        SistematizedConcept(**concept) for concept in saved_results["sistematized_concepts"]
+    ]
+
+    st.rerun()
 
 
 if __name__ == "__main__":
