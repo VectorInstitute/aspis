@@ -255,3 +255,44 @@ def test_main_render_results_when_answers_are_set(
     assert test_sistematized_concepts[1].title in app.markdown[6].value
     assert app.markdown[7].value == test_sistematized_concepts[1].body
     assert app.code[1].value == test_sistematized_concepts[1].prompt_template
+
+
+@patch("aspis.sistematization.get_sistematization_questions")
+@patch("aspis.sistematization.get_sistematized_concepts")
+def test_main_render_error_when_sistematized_concepts_are_none(
+    mock_get_sistematized_concepts: Mock,
+    mock_get_sistematization_questions: Mock,
+) -> None:
+    test_product_description = "test product description"
+    test_risk_description = "test risk description"
+    test_api_key = "test api key"
+    test_questions = ["test question 1", "test question 2"]
+    mock_get_sistematization_questions.return_value = test_questions
+
+    test_answers = ["test answer to question 1", "test answer to question 2"]
+    mock_get_sistematized_concepts.return_value = None
+
+    app = AppTest.from_file("src/aspis/main.py")
+    app.run()
+
+    app.text_input[0].set_value(test_api_key)
+    app.text_area[1].set_value(test_risk_description)
+    app.text_area[0].set_value(test_product_description)
+
+    app.button[0].click()
+    app.run()
+
+    app.text_area[0].set_value(test_answers[0])
+    app.text_area[1].set_value(test_answers[1])
+    app.button[0].click()
+    app.run()
+
+    mock_get_sistematized_concepts.assert_called_with(
+        product_description=test_product_description,
+        risk_description=test_risk_description,
+        questions=test_questions,
+        answers=test_answers,
+        openai_api_key=test_api_key,
+    )
+
+    assert app.error[0].value == "Error generating systematized concepts. Please try again."
