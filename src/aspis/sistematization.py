@@ -4,8 +4,8 @@ import json
 import logging
 from pathlib import Path
 
-from langchain.prompts import ChatPromptTemplate
 from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
