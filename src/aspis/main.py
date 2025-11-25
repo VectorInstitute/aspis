@@ -1,6 +1,10 @@
 """UI for the Aspis application."""
 
+from dataclasses import asdict
+from pathlib import Path
+
 import streamlit as st
+import yaml
 
 from aspis.sistematization import (
     SistematizedConcept,
@@ -11,9 +15,13 @@ from aspis.sistematization import (
 
 def main() -> None:
     """Entry point for the Aspis application."""
+    # Headers
     st.set_page_config(page_title="Aspis", page_icon="🛡️", layout="centered")
+    css_path = Path("src/aspis/assets/styles.css")
+    st.markdown(f"<style>{css_path.read_text()}</style>", unsafe_allow_html=True)
     st.title("🛡️ Aspis")
 
+    # Session state
     openai_api_key = st.session_state.get("openai_api_key", "")
     risk_description = st.session_state.get("risk_description", "")
     product_description = st.session_state.get("product_description", "")
@@ -21,6 +29,7 @@ def main() -> None:
     sistematization_answers = st.session_state.get("sistematization_answers", None)
     sistematized_concepts = st.session_state.get("sistematized_concepts", None)
 
+    # Pages rendering
     if not openai_api_key or not product_description or not risk_description:
         render_landing_page()
 
@@ -42,8 +51,8 @@ def main() -> None:
 
         render_follow_up_questions(follow_up_questions)
 
-    elif sistematized_concepts is None:
-        if sistematization_answers is not None and follow_up_questions is not None:
+    else:
+        if sistematized_concepts is None and sistematization_answers is not None and follow_up_questions is not None:
             # Answers have been submitted, generate and display systematized concepts
             with st.spinner("Generating systematized concepts..."):
                 sistematized_concepts = get_sistematized_concepts(
@@ -159,6 +168,10 @@ def render_sistematized_concepts(sistematized_concepts: list[SistematizedConcept
         "operationalized into a measurement instrument."
     )
 
+    st.markdown("You can download the results in a YAML file for future use by clicking the button below.")
+
+    render_download_button()
+
     for i, concept in enumerate(sistematized_concepts, 1):
         with st.container():
             st.markdown(f"#### {i}. {concept.title}")
@@ -169,7 +182,27 @@ def render_sistematized_concepts(sistematized_concepts: list[SistematizedConcept
                 st.code(concept.prompt_template, language="text")
                 st.markdown("*Replace `<text_to_evaluate/>` with the text you want to evaluate.*")
 
-            st.divider()
+            if i < len(sistematized_concepts):
+                st.divider()
+
+
+def render_download_button() -> None:
+    """Render the download button."""
+    file_contents = {
+        "product_description": st.session_state.product_description,
+        "risk_description": st.session_state.risk_description,
+        "follow_up_questions": st.session_state.follow_up_questions,
+        "sistematization_answers": st.session_state.sistematization_answers,
+        "sistematized_concepts": [asdict(concept) for concept in st.session_state.sistematized_concepts],
+    }
+    yaml_data = yaml.dump(file_contents, default_flow_style=False, allow_unicode=True, sort_keys=False)
+
+    st.download_button(
+        label="⬇️ Download results",
+        data=yaml_data,
+        file_name="sistematized_concepts.yaml",
+        mime="text/yaml",
+    )
 
 
 if __name__ == "__main__":

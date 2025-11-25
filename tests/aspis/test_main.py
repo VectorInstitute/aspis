@@ -249,11 +249,11 @@ def test_main_render_results_when_answers_are_set(
         openai_api_key=test_api_key,
     )
 
-    assert test_sistematized_concepts[0].title in app.markdown[2].value
-    assert app.markdown[3].value == test_sistematized_concepts[0].body
+    assert test_sistematized_concepts[0].title in app.markdown[4].value
+    assert app.markdown[5].value == test_sistematized_concepts[0].body
     assert app.code[0].value == test_sistematized_concepts[0].prompt_template
-    assert test_sistematized_concepts[1].title in app.markdown[6].value
-    assert app.markdown[7].value == test_sistematized_concepts[1].body
+    assert test_sistematized_concepts[1].title in app.markdown[8].value
+    assert app.markdown[9].value == test_sistematized_concepts[1].body
     assert app.code[1].value == test_sistematized_concepts[1].prompt_template
 
 
