@@ -2,7 +2,11 @@
 
 import streamlit as st
 
-from aspis.sistematization import get_sistematization_questions
+from aspis.sistematization import (
+    SistematizedConcept,
+    get_sistematization_questions,
+    get_sistematized_concepts,
+)
 
 
 def main() -> None:
@@ -14,11 +18,15 @@ def main() -> None:
     risk_description = st.session_state.get("risk_description", "")
     product_description = st.session_state.get("product_description", "")
     follow_up_questions = st.session_state.get("follow_up_questions", None)
+    sistematization_answers = st.session_state.get("sistematization_answers", None)
+    sistematized_concepts = st.session_state.get("sistematized_concepts", None)
 
     if not openai_api_key or not product_description or not risk_description:
         render_landing_page()
 
-    else:
+    # Generating and rendering the follow up questions
+    elif sistematization_answers is None:
+        # Generate questions if not already generated
         if follow_up_questions is None or len(follow_up_questions) == 0:
             with st.spinner("Generating questions..."):
                 follow_up_questions = get_sistematization_questions(
@@ -27,13 +35,34 @@ def main() -> None:
                     product_description=product_description,
                 )
 
-            if follow_up_questions is None or len(follow_up_questions) == 0:
-                st.error("Error generating questions. Please try again.")
-                return
+        if follow_up_questions is None or len(follow_up_questions) == 0:
+            st.error("Error generating questions. Please try again.")
+            return
 
         st.session_state.follow_up_questions = follow_up_questions
 
         render_follow_up_questions(follow_up_questions)
+
+    # Generating and rendering the systematized concepts
+    else:
+        if sistematized_concepts is None:
+            # Answers have been submitted, generate and display systematized concepts
+            with st.spinner("Generating systematized concepts..."):
+                sistematized_concepts = get_sistematized_concepts(
+                    product_description=product_description,
+                    risk_description=risk_description,
+                    questions=follow_up_questions,
+                    answers=sistematization_answers,
+                    openai_api_key=openai_api_key,
+                )
+
+        if sistematized_concepts is None:
+            st.error("Error generating systematized concepts. Please try again.")
+            return
+
+        st.session_state.sistematized_concepts = sistematized_concepts
+
+        render_sistematized_concepts(sistematized_concepts)
 
 
 def render_landing_page() -> None:
@@ -116,6 +145,33 @@ def render_follow_up_questions(follow_up_questions: list[str]) -> None:
 
             st.session_state.sistematization_answers = current_answers
             st.rerun()
+
+
+def render_sistematized_concepts(sistematized_concepts: list[SistematizedConcept]) -> None:
+    """Render the systematized concepts with titles and bodies.
+
+    Args:
+        sistematized_concepts: The list of systematized concepts to display.
+    """
+    st.markdown("### Systematized Concepts")
+
+    st.markdown(
+        "Based on your answers, the following systematized concepts have been generated. "
+        "These represent specific formulations of the background concepts that can be "
+        "operationalized into a measurement instrument."
+    )
+
+    for i, concept in enumerate(sistematized_concepts, 1):
+        with st.container():
+            st.markdown(f"#### {i}. {concept.title}")
+            st.markdown(concept.body)
+
+            with st.expander("📝 Measurement Prompt Template", expanded=False):
+                st.markdown("**Use this prompt template with an LLM judge to measure this concept:**")
+                st.code(concept.prompt_template, language="text")
+                st.markdown("*Replace `<text_to_evaluate/>` with the text you want to evaluate.*")
+
+            st.divider()
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@
 
 import json
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -17,7 +18,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-MODEL = "gpt-4o-mini"
+MODEL = "gpt-4o"
 TEMPERATURE = 0.7
 SISTEMATIZATION_PAPER_PATH = Path("src/aspis/data/sistematization_paper.txt")
 
@@ -44,6 +45,45 @@ product, so those can be used as one-shot examples for the measurement instrumen
 
 Please reply with a maximum of 5 questions in the following JSON format:
 ["question 1", "question 2"]
+"""
+)
+
+SISTEMATIZED_CONCEPTS_PROMPT = ChatPromptTemplate.from_template(
+    """
+You are an AI risk analyst.
+The user has a product that they described as follows:
+{product_description}
+
+They are concerned about the following AI risk:
+{risk_description}
+
+You as an AI risk analyst, should think about this problem in the context of the following paper:
+{sistematization_paper}
+
+The product description and the risk description are the background concepts.
+The user has answered the following follow-up questions:
+{questions_and_answers}
+
+Based on the background concepts and the answers provided, your goal is to create systematized concepts.
+According to the paper, systematized concepts are "specific formulation of the concept[, which] commonly involves an explicit definition."
+The systematized concepts should break down the background concepts into specific, well-defined concepts that can be operationalized into a measurement instrument.
+
+Please generate systematized concepts in the following JSON format:
+[
+  {{
+    "title": "Title of the systematized concept",
+    "body": "Detailed description and definition of the systematized concept, including specific characteristics, patterns, or criteria that define it.",
+    "prompt_template": "A complete prompt template for using an LLM as a judge to measure this concept. The template should: 1) Include the actual product description and risk description (use the values provided above, not placeholders), 2) Include the systematized concept definition (the 'body' of this concept), 3) Provide clear instructions for the LLM judge on what to evaluate and how, 4) Include the placeholder <text_to_evaluate/> where the text to be evaluated will be inserted, 5) Specify the exact output format expected (e.g., 'Output a numerical score from 0.0 to 1.0 where 0.0 means...' or 'Output YES or NO followed by a brief explanation'). The prompt should be complete and ready to use after replacing {{text_to_evaluate}}."
+  }},
+  {{
+    "title": "Another systematized concept title",
+    "body": "Another detailed description...",
+    "prompt_template": "Another prompt template..."
+  }}
+]
+
+Generate 3-5 systematized concepts that comprehensively cover the risk in the context of the product.
+Each prompt_template should be a complete, ready-to-use prompt string. IMPORTANT: In the prompt_template string you generate in your JSON response, include the literal placeholder <text_to_evaluate/> that users will replace with actual text when using the template. The prompt should be self-contained and include all necessary context.
 """
 )
 
@@ -80,8 +120,8 @@ def get_sistematization_questions(
     cleaned_response = clean_model_output(raw_response)
     try:
         parsed_response = json.loads(cleaned_response)
-    except Exception:
-        logger.exception(f"Error parsing the response from the model: '{cleaned_response}'")
+    except Exception as e:
+        logger.exception(f"Error parsing the response from the model: {e}. Model response: {cleaned_response}")
         return None
 
     if not isinstance(parsed_response, list) or not all(isinstance(q, str) for q in parsed_response):
@@ -89,6 +129,87 @@ def get_sistematization_questions(
         return None
 
     return parsed_response
+
+
+@dataclass
+class SistematizedConcept:
+    """A systematized concept with a title, body, and prompt template.
+
+    Used for LLM measurement.
+    """
+
+    title: str
+    body: str
+    prompt_template: str
+
+
+def get_sistematized_concepts(
+    product_description: str,
+    risk_description: str,
+    questions: list[str],
+    answers: list[str],
+    openai_api_key: str,
+) -> list[SistematizedConcept] | None:
+    """Generate systematized concepts from the answers to follow-up questions.
+
+    Args:
+        product_description: The description of the AI-powered product.
+        risk_description: The description of the AI risk the product is exposed to.
+        questions: The follow-up questions that were asked.
+        answers: The answers provided by the user.
+        openai_api_key: The OpenAI API key to use the LLM.
+
+    Returns:
+        A list of systematized concepts with titles, bodies, and prompt templates.
+        Will be None if the model fails to return a valid JSON.
+    """
+    # Format questions and answers for the prompt
+    questions_and_answers = format_questions_and_answers(questions, answers)
+
+    llm = get_llm(openai_api_key)
+    response = llm.invoke(
+        SISTEMATIZED_CONCEPTS_PROMPT.format(
+            product_description=product_description,
+            risk_description=risk_description,
+            sistematization_paper=SISTEMATIZATION_PAPER_PATH.read_text(),
+            questions_and_answers=questions_and_answers,
+        )
+    )
+    raw_response = response.content
+
+    logger.info(f"Model's raw response: {raw_response}")
+
+    assert isinstance(raw_response, str)
+    cleaned_response = clean_model_output(raw_response)
+
+    try:
+        concepts_data = json.loads(cleaned_response)
+    except Exception as e:
+        logger.exception(f"Error parsing the response from the model: {e}. Model response: {raw_response}")
+        return None
+
+    if not isinstance(concepts_data, list) or not all(isinstance(concept, dict) for concept in concepts_data):
+        logger.error(f"Response is not a list of dictionaries: '{cleaned_response}'")
+        return None
+
+    if not all({"title", "body", "prompt_template"} == set(concept.keys()) for concept in concepts_data):
+        logger.error(f"All concepts must have 'title', 'body', and 'prompt_template' keys: '{cleaned_response}'")
+        return None
+
+    return [SistematizedConcept(**concept) for concept in concepts_data]
+
+
+def format_questions_and_answers(questions: list[str], answers: list[str]) -> str:
+    """Get the questions and answers formatted for the prompt.
+
+    Args:
+        questions: The follow-up questions that were asked.
+        answers: The answers provided by the user.
+
+    Returns:
+        The questions and answers formatted for the prompt.
+    """
+    return "\n".join([f"Q: {question}\nA: {answer}" for question, answer in zip(questions, answers, strict=True)])
 
 
 def get_llm(api_key: str) -> BaseChatModel:
