@@ -225,7 +225,7 @@ def render_upload_button() -> None:
 
     # Load and validate the file
     try:
-        saved_results = yaml.load(uploaded_file, Loader=yaml.FullLoader)
+        saved_results = yaml.safe_load(uploaded_file)
 
         required_keys = [
             "product_description",
