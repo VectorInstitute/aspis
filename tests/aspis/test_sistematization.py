@@ -154,6 +154,9 @@ def test_get_sistematized_concepts_failure_invalid_results(mock_get_llm: Mock) -
         "invalid json",
         '["invalid", "json"]',
         '{"invalid": "json"}',
+        '[{"title": "test concept 1", "body": "test body 1"}]',
+        '[{"body": "test body 2", "prompt_template": "test prompt template 2"}]',
+        '[{"title": "test concept 3", "prompt_template": "test prompt template 3"]',
     ]
 
     for invalid_model_response in invalid_model_responses:
