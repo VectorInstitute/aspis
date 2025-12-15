@@ -302,7 +302,7 @@ def test_main_render_error_when_sistematized_concepts_are_none(
 
 
 @patch("aspis.main.st.file_uploader")  # this has to be mocked because AppTest doesn't support file uploaders yet
-def test_main_upload_button(mock_file_uploader: Mock) -> None:
+def test_main_upload_file_success(mock_file_uploader: Mock) -> None:
     test_sistematized_concepts = [
         SistematizedConcept(
             title="test concept 1",
@@ -333,6 +333,52 @@ def test_main_upload_button(mock_file_uploader: Mock) -> None:
     assert app.session_state.follow_up_questions == test_yaml_data["follow_up_questions"]
     assert app.session_state.sistematization_answers == test_yaml_data["sistematization_answers"]
     assert app.session_state.sistematized_concepts == test_sistematized_concepts
+
+
+@patch("aspis.main.st.file_uploader")  # this has to be mocked because AppTest doesn't support file uploaders yet
+def test_main_upload_file_failure_missing_field(mock_file_uploader: Mock) -> None:
+    test_sistematized_concepts = [
+        SistematizedConcept(
+            title="test concept 1",
+            body="test body 1",
+            prompt_template="test prompt template 1",
+        ),
+        SistematizedConcept(
+            title="test concept 2",
+            body="test body 2",
+            prompt_template="test prompt template 2",
+        ),
+    ]
+    test_yaml_data = {
+        "product_description": "test product description",
+        "risk_description": "test risk description",
+        "follow_up_questions": ["test question 1", "test question 2"],
+        "sistematization_answers": ["test answer to question 1", "test answer to question 2"],
+        "sistematized_concepts": [asdict(concept) for concept in test_sistematized_concepts],
+    }
+
+    for key in test_yaml_data:
+        test_yaml_data_copy = test_yaml_data.copy()
+        del test_yaml_data_copy[key]
+
+        mock_file_uploader.return_value = BytesIO(yaml.dump(test_yaml_data_copy).encode("utf-8"))
+
+        app = AppTest.from_file("src/aspis/main.py")
+        app.run()
+
+        assert app.error[0].value == f"Error loading saved results: Key '{key}' is missing from the saved results."
+
+        mock_file_uploader.reset_mock()
+
+
+@patch("aspis.main.st.file_uploader")  # this has to be mocked because AppTest doesn't support file uploaders yet
+def test_main_upload_file_failure_bad_format(mock_file_uploader: Mock) -> None:
+    mock_file_uploader.return_value = BytesIO("[key: value".encode("utf-8"))
+
+    app = AppTest.from_file("src/aspis/main.py")
+    app.run()
+
+    assert "Error loading saved results" in app.error[0].value
 
 
 @patch("aspis.main.st.download_button")  # this has to be mocked because AppTest doesn't support download buttons yet
