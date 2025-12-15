@@ -208,14 +208,8 @@ def format_questions_and_answers(questions: list[str], answers: list[str]) -> st
 
     Returns:
         The questions and answers formatted for the prompt.
-
-    Raises:
-        ValueError: If the lengths of questions and answers don't match.
     """
-    if len(questions) != len(answers):
-        raise ValueError(f"Mismatched lengths: {len(questions)} questions vs {len(answers)} answers")
-
-    return "\n".join([f"Q: {question}\nA: {answer}" for question, answer in zip(questions, answers)])
+    return "\n".join([f"Q: {question}\nA: {answer}" for question, answer in zip(questions, answers, strict=True)])
 
 
 def get_llm(api_key: str) -> BaseChatModel:

@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 
 from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
+from pytest import raises
 
 from aspis.sistematization import (
     MODEL,
@@ -62,6 +63,9 @@ def test_get_sistematization_questions_failure_invalid_results(mock_get_llm: Moc
         "invalid json",
         '[{"invalid": "json"}]',
         '{"invalid": "json"}',
+        '[{"title": "test concept 1", "body": "test body 1"}]',
+        '[{"body": "test body 2", "prompt_template": "test prompt template 2"}]',
+        '[{"title": "test concept 3", "prompt_template": "test prompt template 3"]',
     ]
 
     for invalid_model_response in invalid_model_responses:
@@ -150,6 +154,9 @@ def test_get_sistematized_concepts_failure_invalid_results(mock_get_llm: Mock) -
         "invalid json",
         '["invalid", "json"]',
         '{"invalid": "json"}',
+        '[{"title": "test concept 1", "body": "test body 1"}]',
+        '[{"body": "test body 2", "prompt_template": "test prompt template 2"}]',
+        '[{"title": "test concept 3", "prompt_template": "test prompt template 3"]',
     ]
 
     for invalid_model_response in invalid_model_responses:
@@ -185,7 +192,7 @@ def test_get_sistematized_concepts_failure_invalid_results(mock_get_llm: Mock) -
         mock_get_llm.reset_mock()
 
 
-def test_format_questions_and_answers() -> None:
+def test_format_questions_and_answers_success() -> None:
     test_questions = ["test question 1", "test question 2"]
     test_answers = ["test answer to question 1", "test answer to question 2"]
 
@@ -194,6 +201,14 @@ def test_format_questions_and_answers() -> None:
     assert result == "\n".join(
         [f"Q: {question}\nA: {answer}" for question, answer in zip(test_questions, test_answers)]
     )
+
+
+def test_format_questions_and_answers_failure_mismatched_lengths() -> None:
+    test_questions = ["test question 1", "test question 2"]
+    test_answers = ["test answer to question 1"]
+
+    with raises(ValueError):
+        format_questions_and_answers(test_questions, test_answers)
 
 
 def test_get_llm() -> None:
