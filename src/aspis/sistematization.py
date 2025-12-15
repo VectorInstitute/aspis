@@ -179,21 +179,24 @@ def get_sistematized_concepts(
 
     logger.info(f"Model's raw response: {raw_response}")
 
+    assert isinstance(raw_response, str)
+    cleaned_response = clean_model_output(raw_response)
+
     try:
-        assert isinstance(raw_response, str)
-        cleaned_response = clean_model_output(raw_response)
         concepts_data = json.loads(cleaned_response)
-        return [
-            SistematizedConcept(
-                title=concept["title"],
-                body=concept["body"],
-                prompt_template=concept["prompt_template"],
-            )
-            for concept in concepts_data
-        ]
     except Exception as e:
         logger.exception(f"Error parsing the response from the model: {e}. Model response: {raw_response}")
         return None
+
+    if not isinstance(concepts_data, list) or not all(isinstance(concept, dict) for concept in concepts_data):
+        logger.error(f"Response is not a list of dictionaries: '{cleaned_response}'")
+        return None
+
+    if not all({"title", "body", "prompt_template"} == set(concept.keys()) for concept in concepts_data):
+        logger.error(f"All concepts must have 'title', 'body', and 'prompt_template' keys: '{cleaned_response}'")
+        return None
+
+    return [SistematizedConcept(**concept) for concept in concepts_data]
 
 
 def format_questions_and_answers(questions: list[str], answers: list[str]) -> str:
@@ -205,7 +208,13 @@ def format_questions_and_answers(questions: list[str], answers: list[str]) -> st
 
     Returns:
         The questions and answers formatted for the prompt.
+
+    Raises:
+        ValueError: If the lengths of questions and answers don't match.
     """
+    if len(questions) != len(answers):
+        raise ValueError(f"Mismatched lengths: {len(questions)} questions vs {len(answers)} answers")
+
     return "\n".join([f"Q: {question}\nA: {answer}" for question, answer in zip(questions, answers)])
 
 
