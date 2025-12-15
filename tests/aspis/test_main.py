@@ -1,7 +1,9 @@
 """Test for the main module."""
 
-from unittest.mock import Mock, patch
+from dataclasses import asdict
+from unittest.mock import ANY, Mock, patch
 
+import yaml
 from streamlit.testing.v1 import AppTest
 
 from aspis.sistematization import SistematizedConcept
@@ -296,3 +298,43 @@ def test_main_render_error_when_sistematized_concepts_are_none(
     )
 
     assert app.error[0].value == "Error generating systematized concepts. Please try again."
+
+
+@patch("aspis.main.st.download_button")  # this has to be mocked because AppTest doesn't support download buttons yet
+def test_main_download_button(mock_download_button: Mock) -> None:
+    app = AppTest.from_file("src/aspis/main.py")
+
+    app.session_state.openai_api_key = "test api key"
+    app.session_state.product_description = "test product description"
+    app.session_state.risk_description = "test risk description"
+    app.session_state.follow_up_questions = ["test question 1", "test question 2"]
+    app.session_state.sistematization_answers = ["test answer to question 1", "test answer to question 2"]
+    app.session_state.sistematized_concepts = [
+        SistematizedConcept(
+            title="test concept 1",
+            body="test body 1",
+            prompt_template="test prompt template 1",
+        ),
+        SistematizedConcept(
+            title="test concept 2",
+            body="test body 2",
+            prompt_template="test prompt template 2",
+        ),
+    ]
+    app.run()
+
+    mock_download_button.assert_called_with(
+        label="⬇️ Download results",
+        data=ANY,
+        file_name="sistematized_concepts.yaml",
+        mime="text/yaml",
+    )
+
+    expected_yaml_data = {
+        "product_description": app.session_state.product_description,
+        "risk_description": app.session_state.risk_description,
+        "follow_up_questions": app.session_state.follow_up_questions,
+        "sistematization_answers": app.session_state.sistematization_answers,
+        "sistematized_concepts": [asdict(concept) for concept in app.session_state.sistematized_concepts],
+    }
+    assert expected_yaml_data == yaml.safe_load(mock_download_button.call_args_list[0].kwargs["data"])
