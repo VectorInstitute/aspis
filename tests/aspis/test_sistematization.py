@@ -80,8 +80,8 @@ def test_get_sistematization_questions_failure_invalid_results(mock_get_llm: Moc
         )
 
         assert questions is None
-        assert mock_get_llm.has_been_called_once_with(test_openai_api_key)
-        assert invoke_mock.has_been_called_once_with(
+        mock_get_llm.assert_called_once_with(test_openai_api_key)
+        invoke_mock.assert_called_once_with(
             SISTEMATIZATION_PROMPT.format(
                 product_description=test_product_description,
                 risk_description=test_risk_description,
