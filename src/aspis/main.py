@@ -45,7 +45,7 @@ def main() -> None:
 
     # Generating and rendering the systematized concepts
     else:
-        if sistematized_concepts is None and sistematization_answers is not None and follow_up_questions is not None:
+        if sistematized_concepts is None:
             # Answers have been submitted, generate and display systematized concepts
             with st.spinner("Generating systematized concepts..."):
                 sistematized_concepts = get_sistematized_concepts(
