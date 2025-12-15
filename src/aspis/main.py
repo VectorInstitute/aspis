@@ -17,7 +17,7 @@ def main() -> None:
     """Entry point for the Aspis application."""
     # Headers
     st.set_page_config(page_title="Aspis", page_icon="🛡️", layout="centered")
-    css_path = Path("src/aspis/assets/styles.css")
+    css_path = Path(__file__).parent / "assets" / "styles.css"
     st.markdown(f"<style>{css_path.read_text()}</style>", unsafe_allow_html=True)
     st.title("🛡️ Aspis")
 
