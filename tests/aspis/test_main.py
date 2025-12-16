@@ -8,7 +8,7 @@ from unittest.mock import ANY, Mock, patch
 import yaml
 from streamlit.testing.v1 import AppTest
 
-from aspis.sistematization import SistematizedConcept
+from aspis.systematization import SystematizedConcept
 
 
 def test_main_render_inputs_when_empty() -> None:
@@ -27,8 +27,8 @@ def test_main_render_inputs_when_empty() -> None:
     assert app.text_area[1].label == "What is the AI risk you want to create a measurement instrument for?"
 
 
-@patch("aspis.sistematization.get_sistematization_questions")
-def test_main_ask_for_questions_when_inputs_are_set(mock_get_sistematization_questions: Mock) -> None:
+@patch("aspis.systematization.get_systematization_questions")
+def test_main_ask_for_questions_when_inputs_are_set(mock_get_systematization_questions: Mock) -> None:
     app = AppTest.from_file("src/aspis/main.py")
 
     app.session_state.openai_api_key = "test api key"
@@ -37,19 +37,19 @@ def test_main_ask_for_questions_when_inputs_are_set(mock_get_sistematization_que
 
     app.run()
 
-    assert mock_get_sistematization_questions.call_count == 1
-    call_args_list = mock_get_sistematization_questions.call_args_list
+    assert mock_get_systematization_questions.call_count == 1
+    call_args_list = mock_get_systematization_questions.call_args_list
     assert call_args_list[0].kwargs["risk_description"] == "test risk description"
     assert call_args_list[0].kwargs["product_description"] == "test product description"
     assert call_args_list[0].kwargs["openai_api_key"] == "test api key"
 
 
-@patch("aspis.sistematization.get_sistematization_questions")
-def test_main_render_error_messages_when_inputs_are_not_set(mock_get_sistematization_questions: Mock) -> None:
+@patch("aspis.systematization.get_systematization_questions")
+def test_main_render_error_messages_when_inputs_are_not_set(mock_get_systematization_questions: Mock) -> None:
     test_api_key = "test api key"
     test_risk_description = "test risk description"
     test_product_description = "test product description"
-    mock_get_sistematization_questions.return_value = ["test question"]
+    mock_get_systematization_questions.return_value = ["test question"]
 
     # Empty API key
     app = AppTest.from_file("src/aspis/main.py")
@@ -103,12 +103,12 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_get_sistematiza
     assert app.session_state.openai_api_key == test_api_key
     assert app.session_state.risk_description == test_risk_description
     assert app.session_state.product_description == test_product_description
-    mock_get_sistematization_questions.assert_called()
+    mock_get_systematization_questions.assert_called()
 
 
-@patch("aspis.sistematization.get_sistematization_questions")
-def test_main_render_error_when_questions_are_none(mock_get_sistematization_questions: Mock) -> None:
-    mock_get_sistematization_questions.return_value = None
+@patch("aspis.systematization.get_systematization_questions")
+def test_main_render_error_when_questions_are_none(mock_get_systematization_questions: Mock) -> None:
+    mock_get_systematization_questions.return_value = None
 
     app = AppTest.from_file("src/aspis/main.py")
     app.run()
@@ -120,7 +120,7 @@ def test_main_render_error_when_questions_are_none(mock_get_sistematization_ques
     app.button[0].click()
     app.run()
 
-    mock_get_sistematization_questions.assert_called_with(
+    mock_get_systematization_questions.assert_called_with(
         product_description="test product description",
         risk_description="test risk description",
         openai_api_key="test api key",
@@ -128,10 +128,10 @@ def test_main_render_error_when_questions_are_none(mock_get_sistematization_ques
     assert app.error[0].value == "Error generating questions. Please try again."
 
 
-@patch("aspis.sistematization.get_sistematization_questions")
-def test_main_render_questions_on_success(mock_get_sistematization_questions: Mock) -> None:
+@patch("aspis.systematization.get_systematization_questions")
+def test_main_render_questions_on_success(mock_get_systematization_questions: Mock) -> None:
     test_questions = ["test question 1", "test question 2"]
-    mock_get_sistematization_questions.return_value = test_questions
+    mock_get_systematization_questions.return_value = test_questions
 
     app = AppTest.from_file("src/aspis/main.py")
     app.run()
@@ -143,7 +143,7 @@ def test_main_render_questions_on_success(mock_get_sistematization_questions: Mo
     app.button[0].click()
     app.run()
 
-    mock_get_sistematization_questions.assert_called_with(
+    mock_get_systematization_questions.assert_called_with(
         product_description="test product description",
         risk_description="test risk description",
         openai_api_key="test api key",
@@ -152,10 +152,10 @@ def test_main_render_questions_on_success(mock_get_sistematization_questions: Mo
         assert app.text_area[i].label == rf"{i + 1}\. {test_questions[i]}"
 
 
-@patch("aspis.sistematization.get_sistematization_questions")
-def test_main_error_when_answers_are_empty(mock_get_sistematization_questions: Mock) -> None:
+@patch("aspis.systematization.get_systematization_questions")
+def test_main_error_when_answers_are_empty(mock_get_systematization_questions: Mock) -> None:
     test_questions = ["test question 1", "test question 2"]
-    mock_get_sistematization_questions.return_value = test_questions
+    mock_get_systematization_questions.return_value = test_questions
 
     app = AppTest.from_file("src/aspis/main.py")
     app.run()
@@ -174,16 +174,16 @@ def test_main_error_when_answers_are_empty(mock_get_sistematization_questions: M
     assert app.error[0].value == "Please answer question 1."
 
 
-@patch("aspis.sistematization.get_sistematization_questions")
-@patch("aspis.sistematization.get_sistematized_concepts")
+@patch("aspis.systematization.get_systematization_questions")
+@patch("aspis.systematization.get_systematized_concepts")
 def test_main_saves_answers_on_success(
-    mock_get_sistematized_concepts: Mock,
-    mock_get_sistematization_questions: Mock,
+    mock_get_systematized_concepts: Mock,
+    mock_get_systematization_questions: Mock,
 ) -> None:
     test_questions = ["test question 1", "test question 2"]
     test_answers = ["test answer to question 1", "test answer to question 2"]
-    mock_get_sistematization_questions.return_value = test_questions
-    mock_get_sistematized_concepts.return_value = []
+    mock_get_systematization_questions.return_value = test_questions
+    mock_get_systematized_concepts.return_value = []
 
     app = AppTest.from_file("src/aspis/main.py")
     app.run()
@@ -200,35 +200,35 @@ def test_main_saves_answers_on_success(
     app.button[0].click()
     app.run()
 
-    assert app.session_state.sistematization_answers == test_answers
+    assert app.session_state.systematization_answers == test_answers
 
 
-@patch("aspis.sistematization.get_sistematization_questions")
-@patch("aspis.sistematization.get_sistematized_concepts")
+@patch("aspis.systematization.get_systematization_questions")
+@patch("aspis.systematization.get_systematized_concepts")
 def test_main_render_results_when_answers_are_set(
-    mock_get_sistematized_concepts: Mock,
-    mock_get_sistematization_questions: Mock,
+    mock_get_systematized_concepts: Mock,
+    mock_get_systematization_questions: Mock,
 ) -> None:
     test_product_description = "test product description"
     test_risk_description = "test risk description"
     test_api_key = "test api key"
     test_questions = ["test question 1", "test question 2"]
-    mock_get_sistematization_questions.return_value = test_questions
+    mock_get_systematization_questions.return_value = test_questions
 
     test_answers = ["test answer to question 1", "test answer to question 2"]
-    test_sistematized_concepts = [
-        SistematizedConcept(
+    test_systematized_concepts = [
+        SystematizedConcept(
             title="test concept 1",
             body="test body 1",
             prompt_template="test prompt template 1",
         ),
-        SistematizedConcept(
+        SystematizedConcept(
             title="test concept 2",
             body="test body 2",
             prompt_template="test prompt template 2",
         ),
     ]
-    mock_get_sistematized_concepts.return_value = test_sistematized_concepts
+    mock_get_systematized_concepts.return_value = test_systematized_concepts
 
     app = AppTest.from_file("src/aspis/main.py")
     app.run()
@@ -245,7 +245,7 @@ def test_main_render_results_when_answers_are_set(
     app.button[0].click()
     app.run()
 
-    mock_get_sistematized_concepts.assert_called_with(
+    mock_get_systematized_concepts.assert_called_with(
         product_description=test_product_description,
         risk_description=test_risk_description,
         questions=test_questions,
@@ -253,28 +253,28 @@ def test_main_render_results_when_answers_are_set(
         openai_api_key=test_api_key,
     )
 
-    assert test_sistematized_concepts[0].title in app.markdown[4].value
-    assert app.markdown[5].value == test_sistematized_concepts[0].body
-    assert app.code[0].value == test_sistematized_concepts[0].prompt_template
-    assert test_sistematized_concepts[1].title in app.markdown[8].value
-    assert app.markdown[9].value == test_sistematized_concepts[1].body
-    assert app.code[1].value == test_sistematized_concepts[1].prompt_template
+    assert test_systematized_concepts[0].title in app.markdown[4].value
+    assert app.markdown[5].value == test_systematized_concepts[0].body
+    assert app.code[0].value == test_systematized_concepts[0].prompt_template
+    assert test_systematized_concepts[1].title in app.markdown[8].value
+    assert app.markdown[9].value == test_systematized_concepts[1].body
+    assert app.code[1].value == test_systematized_concepts[1].prompt_template
 
 
-@patch("aspis.sistematization.get_sistematization_questions")
-@patch("aspis.sistematization.get_sistematized_concepts")
-def test_main_render_error_when_sistematized_concepts_are_none(
-    mock_get_sistematized_concepts: Mock,
-    mock_get_sistematization_questions: Mock,
+@patch("aspis.systematization.get_systematization_questions")
+@patch("aspis.systematization.get_systematized_concepts")
+def test_main_render_error_when_systematized_concepts_are_none(
+    mock_get_systematized_concepts: Mock,
+    mock_get_systematization_questions: Mock,
 ) -> None:
     test_product_description = "test product description"
     test_risk_description = "test risk description"
     test_api_key = "test api key"
     test_questions = ["test question 1", "test question 2"]
-    mock_get_sistematization_questions.return_value = test_questions
+    mock_get_systematization_questions.return_value = test_questions
 
     test_answers = ["test answer to question 1", "test answer to question 2"]
-    mock_get_sistematized_concepts.return_value = None
+    mock_get_systematized_concepts.return_value = None
 
     app = AppTest.from_file("src/aspis/main.py")
     app.run()
@@ -291,7 +291,7 @@ def test_main_render_error_when_sistematized_concepts_are_none(
     app.button[0].click()
     app.run()
 
-    mock_get_sistematized_concepts.assert_called_with(
+    mock_get_systematized_concepts.assert_called_with(
         product_description=test_product_description,
         risk_description=test_risk_description,
         questions=test_questions,
@@ -304,13 +304,13 @@ def test_main_render_error_when_sistematized_concepts_are_none(
 
 @patch("aspis.main.st.file_uploader")  # this has to be mocked because AppTest doesn't support file uploaders yet
 def test_main_upload_file_success(mock_file_uploader: Mock) -> None:
-    test_sistematized_concepts = [
-        SistematizedConcept(
+    test_systematized_concepts = [
+        SystematizedConcept(
             title="test concept 1",
             body="test body 1",
             prompt_template="test prompt template 1",
         ),
-        SistematizedConcept(
+        SystematizedConcept(
             title="test concept 2",
             body="test body 2",
             prompt_template="test prompt template 2",
@@ -320,8 +320,8 @@ def test_main_upload_file_success(mock_file_uploader: Mock) -> None:
         "product_description": "test product description",
         "risk_description": "test risk description",
         "follow_up_questions": ["test question 1", "test question 2"],
-        "sistematization_answers": ["test answer to question 1", "test answer to question 2"],
-        "sistematized_concepts": [asdict(concept) for concept in test_sistematized_concepts],
+        "systematization_answers": ["test answer to question 1", "test answer to question 2"],
+        "systematized_concepts": [asdict(concept) for concept in test_systematized_concepts],
     }
 
     mock_file_uploader.return_value = BytesIO(yaml.safe_dump(test_yaml_data).encode("utf-8"))
@@ -332,19 +332,19 @@ def test_main_upload_file_success(mock_file_uploader: Mock) -> None:
     assert app.session_state.product_description == test_yaml_data["product_description"]
     assert app.session_state.risk_description == test_yaml_data["risk_description"]
     assert app.session_state.follow_up_questions == test_yaml_data["follow_up_questions"]
-    assert app.session_state.sistematization_answers == test_yaml_data["sistematization_answers"]
-    assert app.session_state.sistematized_concepts == test_sistematized_concepts
+    assert app.session_state.systematization_answers == test_yaml_data["systematization_answers"]
+    assert app.session_state.systematized_concepts == test_systematized_concepts
 
 
 @patch("aspis.main.st.file_uploader")  # this has to be mocked because AppTest doesn't support file uploaders yet
 def test_main_upload_file_failure_missing_field(mock_file_uploader: Mock) -> None:
-    test_sistematized_concepts = [
-        SistematizedConcept(
+    test_systematized_concepts = [
+        SystematizedConcept(
             title="test concept 1",
             body="test body 1",
             prompt_template="test prompt template 1",
         ),
-        SistematizedConcept(
+        SystematizedConcept(
             title="test concept 2",
             body="test body 2",
             prompt_template="test prompt template 2",
@@ -354,8 +354,8 @@ def test_main_upload_file_failure_missing_field(mock_file_uploader: Mock) -> Non
         "product_description": "test product description",
         "risk_description": "test risk description",
         "follow_up_questions": ["test question 1", "test question 2"],
-        "sistematization_answers": ["test answer to question 1", "test answer to question 2"],
-        "sistematized_concepts": [asdict(concept) for concept in test_sistematized_concepts],
+        "systematization_answers": ["test answer to question 1", "test answer to question 2"],
+        "systematized_concepts": [asdict(concept) for concept in test_systematized_concepts],
     }
 
     for key in test_yaml_data:
@@ -371,10 +371,10 @@ def test_main_upload_file_failure_missing_field(mock_file_uploader: Mock) -> Non
 
         mock_file_uploader.reset_mock()
 
-    concept_keys = list(test_yaml_data["sistematized_concepts"][0].keys())
+    concept_keys = list(test_yaml_data["systematized_concepts"][0].keys())
     for key in concept_keys:
         test_yaml_data_copy = deepcopy(test_yaml_data)
-        del test_yaml_data_copy["sistematized_concepts"][0][key]
+        del test_yaml_data_copy["systematized_concepts"][0][key]
 
         mock_file_uploader.return_value = BytesIO(yaml.safe_dump(test_yaml_data_copy).encode("utf-8"))
 
@@ -407,14 +407,14 @@ def test_main_download_button(mock_download_button: Mock) -> None:
     app.session_state.product_description = "test product description"
     app.session_state.risk_description = "test risk description"
     app.session_state.follow_up_questions = ["test question 1", "test question 2"]
-    app.session_state.sistematization_answers = ["test answer to question 1", "test answer to question 2"]
-    app.session_state.sistematized_concepts = [
-        SistematizedConcept(
+    app.session_state.systematization_answers = ["test answer to question 1", "test answer to question 2"]
+    app.session_state.systematized_concepts = [
+        SystematizedConcept(
             title="test concept 1",
             body="test body 1",
             prompt_template="test prompt template 1",
         ),
-        SistematizedConcept(
+        SystematizedConcept(
             title="test concept 2",
             body="test body 2",
             prompt_template="test prompt template 2",
@@ -425,7 +425,7 @@ def test_main_download_button(mock_download_button: Mock) -> None:
     mock_download_button.assert_called_with(
         label="⬇️ Download results",
         data=ANY,
-        file_name="sistematized_concepts.yaml",
+        file_name="systematized_concepts.yaml",
         mime="text/yaml",
     )
 
@@ -433,7 +433,7 @@ def test_main_download_button(mock_download_button: Mock) -> None:
         "product_description": app.session_state.product_description,
         "risk_description": app.session_state.risk_description,
         "follow_up_questions": app.session_state.follow_up_questions,
-        "sistematization_answers": app.session_state.sistematization_answers,
-        "sistematized_concepts": [asdict(concept) for concept in app.session_state.sistematized_concepts],
+        "systematization_answers": app.session_state.systematization_answers,
+        "systematized_concepts": [asdict(concept) for concept in app.session_state.systematized_concepts],
     }
     assert expected_yaml_data == yaml.safe_load(mock_download_button.call_args_list[0].kwargs["data"])

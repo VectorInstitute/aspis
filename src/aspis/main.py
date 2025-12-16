@@ -6,10 +6,10 @@ from pathlib import Path
 import streamlit as st
 import yaml
 
-from aspis.sistematization import (
-    SistematizedConcept,
-    get_sistematization_questions,
-    get_sistematized_concepts,
+from aspis.systematization import (
+    SystematizedConcept,
+    get_systematization_questions,
+    get_systematized_concepts,
 )
 
 
@@ -26,8 +26,8 @@ def main() -> None:
     risk_description = st.session_state.get("risk_description", "")
     product_description = st.session_state.get("product_description", "")
     follow_up_questions = st.session_state.get("follow_up_questions", None)
-    sistematization_answers = st.session_state.get("sistematization_answers", None)
-    sistematized_concepts = st.session_state.get("sistematized_concepts", None)
+    systematization_answers = st.session_state.get("systematization_answers", None)
+    systematized_concepts = st.session_state.get("systematized_concepts", None)
 
     # Rendering the landing page
     if not openai_api_key or not product_description or not risk_description:
@@ -35,11 +35,11 @@ def main() -> None:
         render_upload_button()
 
     # Generating and rendering the follow up questions
-    elif sistematization_answers is None:
+    elif systematization_answers is None:
         # Generate questions if not already generated
         if follow_up_questions is None or len(follow_up_questions) == 0:
             with st.spinner("Generating questions..."):
-                follow_up_questions = get_sistematization_questions(
+                follow_up_questions = get_systematization_questions(
                     openai_api_key=openai_api_key,
                     risk_description=risk_description,
                     product_description=product_description,
@@ -55,24 +55,24 @@ def main() -> None:
 
     # Generating and rendering the systematized concepts
     else:
-        if sistematized_concepts is None:
+        if systematized_concepts is None:
             # Answers have been submitted, generate and display systematized concepts
             with st.spinner("Generating systematized concepts..."):
-                sistematized_concepts = get_sistematized_concepts(
+                systematized_concepts = get_systematized_concepts(
                     product_description=product_description,
                     risk_description=risk_description,
                     questions=follow_up_questions,
-                    answers=sistematization_answers,
+                    answers=systematization_answers,
                     openai_api_key=openai_api_key,
                 )
 
-        if sistematized_concepts is None:
+        if systematized_concepts is None:
             st.error("Error generating systematized concepts. Please try again.")
             return
 
-        st.session_state.sistematized_concepts = sistematized_concepts
+        st.session_state.systematized_concepts = systematized_concepts
 
-        render_sistematized_concepts(sistematized_concepts)
+        render_systematized_concepts(systematized_concepts)
 
 
 def render_landing_page() -> None:
@@ -156,15 +156,15 @@ def render_follow_up_questions(follow_up_questions: list[str]) -> None:
                     st.error(f"Please answer question {i + 1}.")
                     return
 
-            st.session_state.sistematization_answers = current_answers
+            st.session_state.systematization_answers = current_answers
             st.rerun()
 
 
-def render_sistematized_concepts(sistematized_concepts: list[SistematizedConcept]) -> None:
+def render_systematized_concepts(systematized_concepts: list[SystematizedConcept]) -> None:
     """Render the systematized concepts with titles and bodies.
 
     Args:
-        sistematized_concepts: The list of systematized concepts to display.
+        systematized_concepts: The list of systematized concepts to display.
     """
     st.markdown("### Systematized Concepts")
 
@@ -178,7 +178,7 @@ def render_sistematized_concepts(sistematized_concepts: list[SistematizedConcept
 
     render_download_button()
 
-    for i, concept in enumerate(sistematized_concepts, 1):
+    for i, concept in enumerate(systematized_concepts, 1):
         with st.container():
             st.markdown(f"#### {i}. {concept.title}")
             st.markdown(concept.body)
@@ -188,7 +188,7 @@ def render_sistematized_concepts(sistematized_concepts: list[SistematizedConcept
                 st.code(concept.prompt_template, language="text")
                 st.markdown("*Replace `<text_to_evaluate/>` with the text you want to evaluate.*")
 
-            if i < len(sistematized_concepts):
+            if i < len(systematized_concepts):
                 st.divider()
 
 
@@ -198,15 +198,15 @@ def render_download_button() -> None:
         "product_description": st.session_state.product_description,
         "risk_description": st.session_state.risk_description,
         "follow_up_questions": st.session_state.follow_up_questions,
-        "sistematization_answers": st.session_state.sistematization_answers,
-        "sistematized_concepts": [asdict(concept) for concept in st.session_state.sistematized_concepts],
+        "systematization_answers": st.session_state.systematization_answers,
+        "systematized_concepts": [asdict(concept) for concept in st.session_state.systematized_concepts],
     }
     yaml_data = yaml.safe_dump(file_contents, default_flow_style=False, allow_unicode=True, sort_keys=False)
 
     st.download_button(
         label="⬇️ Download results",
         data=yaml_data,
-        file_name="sistematized_concepts.yaml",
+        file_name="systematized_concepts.yaml",
         mime="text/yaml",
     )
 
@@ -231,15 +231,15 @@ def render_upload_button() -> None:
             "product_description",
             "risk_description",
             "follow_up_questions",
-            "sistematization_answers",
-            "sistematized_concepts",
+            "systematization_answers",
+            "systematized_concepts",
         ]
         for key in required_keys:
             if key not in saved_results:
                 raise ValueError(f"Key '{key}' is missing from the saved results.")
 
         systematized_concepts_required_keys = ["title", "body", "prompt_template"]
-        for concept in saved_results["sistematized_concepts"]:
+        for concept in saved_results["systematized_concepts"]:
             for key in systematized_concepts_required_keys:
                 if key not in concept:
                     raise ValueError(f"Key '{key}' is missing from a systematized concept in the saved results.")
@@ -254,9 +254,9 @@ def render_upload_button() -> None:
     # we're restoring saved results and don't need to make new API calls at this stage
     st.session_state.openai_api_key = "placeholder-key"
     st.session_state.follow_up_questions = saved_results["follow_up_questions"]
-    st.session_state.sistematization_answers = saved_results["sistematization_answers"]
-    st.session_state.sistematized_concepts = [
-        SistematizedConcept(**concept) for concept in saved_results["sistematized_concepts"]
+    st.session_state.systematization_answers = saved_results["systematization_answers"]
+    st.session_state.systematized_concepts = [
+        SystematizedConcept(**concept) for concept in saved_results["systematized_concepts"]
     ]
 
     st.rerun()
