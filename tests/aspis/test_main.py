@@ -324,7 +324,7 @@ def test_main_upload_file_success(mock_file_uploader: Mock) -> None:
         "sistematized_concepts": [asdict(concept) for concept in test_sistematized_concepts],
     }
 
-    mock_file_uploader.return_value = BytesIO(yaml.dump(test_yaml_data).encode("utf-8"))
+    mock_file_uploader.return_value = BytesIO(yaml.safe_dump(test_yaml_data).encode("utf-8"))
 
     app = AppTest.from_file("src/aspis/main.py")
     app.run()
@@ -362,7 +362,7 @@ def test_main_upload_file_failure_missing_field(mock_file_uploader: Mock) -> Non
         test_yaml_data_copy = deepcopy(test_yaml_data)
         del test_yaml_data_copy[key]
 
-        mock_file_uploader.return_value = BytesIO(yaml.dump(test_yaml_data_copy).encode("utf-8"))
+        mock_file_uploader.return_value = BytesIO(yaml.safe_dump(test_yaml_data_copy).encode("utf-8"))
 
         app = AppTest.from_file("src/aspis/main.py")
         app.run()
@@ -376,7 +376,7 @@ def test_main_upload_file_failure_missing_field(mock_file_uploader: Mock) -> Non
         test_yaml_data_copy = deepcopy(test_yaml_data)
         del test_yaml_data_copy["sistematized_concepts"][0][key]
 
-        mock_file_uploader.return_value = BytesIO(yaml.dump(test_yaml_data_copy).encode("utf-8"))
+        mock_file_uploader.return_value = BytesIO(yaml.safe_dump(test_yaml_data_copy).encode("utf-8"))
 
         app = AppTest.from_file("src/aspis/main.py")
         app.run()

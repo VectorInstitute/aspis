@@ -201,7 +201,7 @@ def render_download_button() -> None:
         "sistematization_answers": st.session_state.sistematization_answers,
         "sistematized_concepts": [asdict(concept) for concept in st.session_state.sistematized_concepts],
     }
-    yaml_data = yaml.dump(file_contents, default_flow_style=False, allow_unicode=True, sort_keys=False)
+    yaml_data = yaml.safe_dump(file_contents, default_flow_style=False, allow_unicode=True, sort_keys=False)
 
     st.download_button(
         label="⬇️ Download results",
