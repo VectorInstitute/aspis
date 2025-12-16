@@ -1,5 +1,6 @@
 """Test for the main module."""
 
+from copy import deepcopy
 from dataclasses import asdict
 from io import BytesIO
 from unittest.mock import ANY, Mock, patch
@@ -358,7 +359,7 @@ def test_main_upload_file_failure_missing_field(mock_file_uploader: Mock) -> Non
     }
 
     for key in test_yaml_data:
-        test_yaml_data_copy = test_yaml_data.copy()
+        test_yaml_data_copy = deepcopy(test_yaml_data)
         del test_yaml_data_copy[key]
 
         mock_file_uploader.return_value = BytesIO(yaml.dump(test_yaml_data_copy).encode("utf-8"))
@@ -367,6 +368,23 @@ def test_main_upload_file_failure_missing_field(mock_file_uploader: Mock) -> Non
         app.run()
 
         assert app.error[0].value == f"Error loading saved results: Key '{key}' is missing from the saved results."
+
+        mock_file_uploader.reset_mock()
+
+    concept_keys = list(test_yaml_data["sistematized_concepts"][0].keys())
+    for key in concept_keys:
+        test_yaml_data_copy = deepcopy(test_yaml_data)
+        del test_yaml_data_copy["sistematized_concepts"][0][key]
+
+        mock_file_uploader.return_value = BytesIO(yaml.dump(test_yaml_data_copy).encode("utf-8"))
+
+        app = AppTest.from_file("src/aspis/main.py")
+        app.run()
+
+        assert (
+            app.error[0].value
+            == f"Error loading saved results: Key '{key}' is missing from a systematized concept in the saved results."
+        )
 
         mock_file_uploader.reset_mock()
 
