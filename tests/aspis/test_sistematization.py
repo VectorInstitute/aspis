@@ -1,4 +1,4 @@
-"""Test for systematization module."""
+"""Test for sistematization module."""
 
 import json
 from unittest.mock import Mock, patch
@@ -7,22 +7,22 @@ from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 from pytest import raises
 
-from aspis.systematization import (
+from aspis.sistematization import (
     MODEL,
-    SYSTEMATIZATION_PAPER_PATH,
-    SYSTEMATIZATION_PROMPT,
-    SYSTEMATIZED_CONCEPTS_PROMPT,
+    SISTEMATIZATION_PAPER_PATH,
+    SISTEMATIZATION_PROMPT,
+    SISTEMATIZED_CONCEPTS_PROMPT,
     TEMPERATURE,
-    SystematizedConcept,
+    SistematizedConcept,
     format_questions_and_answers,
     get_llm,
-    get_systematization_questions,
-    get_systematized_concepts,
+    get_sistematization_questions,
+    get_sistematized_concepts,
 )
 
 
-@patch("aspis.systematization.get_llm")
-def test_get_systematization_questions_success(mock_get_llm: Mock) -> None:
+@patch("aspis.sistematization.get_llm")
+def test_get_sistematization_questions_success(mock_get_llm: Mock) -> None:
     model_responses = [
         '["test question 1", "test question 2"]',
         '```json ["test question 1", "test question 2"]   ```  ',
@@ -37,7 +37,7 @@ def test_get_systematization_questions_success(mock_get_llm: Mock) -> None:
         test_risk_description = "test risk description"
         test_openai_api_key = "test api key"
 
-        questions = get_systematization_questions(
+        questions = get_sistematization_questions(
             product_description=test_product_description,
             risk_description=test_risk_description,
             openai_api_key=test_openai_api_key,
@@ -47,18 +47,18 @@ def test_get_systematization_questions_success(mock_get_llm: Mock) -> None:
 
         mock_get_llm.assert_called_once_with(test_openai_api_key)
         invoke_mock.assert_called_once_with(
-            SYSTEMATIZATION_PROMPT.format(
+            SISTEMATIZATION_PROMPT.format(
                 product_description=test_product_description,
                 risk_description=test_risk_description,
-                systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
+                sistematization_paper=SISTEMATIZATION_PAPER_PATH.read_text(),
             )
         )
 
         mock_get_llm.reset_mock()
 
 
-@patch("aspis.systematization.get_llm")
-def test_get_systematization_questions_failure_invalid_results(mock_get_llm: Mock) -> None:
+@patch("aspis.sistematization.get_llm")
+def test_get_sistematization_questions_failure_invalid_results(mock_get_llm: Mock) -> None:
     invalid_model_responses = [
         "invalid json",
         '[{"invalid": "json"}]',
@@ -77,7 +77,7 @@ def test_get_systematization_questions_failure_invalid_results(mock_get_llm: Moc
         test_risk_description = "test risk description"
         test_openai_api_key = "test api key"
 
-        questions = get_systematization_questions(
+        questions = get_sistematization_questions(
             product_description=test_product_description,
             risk_description=test_risk_description,
             openai_api_key=test_openai_api_key,
@@ -86,18 +86,18 @@ def test_get_systematization_questions_failure_invalid_results(mock_get_llm: Moc
         assert questions is None
         mock_get_llm.assert_called_once_with(test_openai_api_key)
         invoke_mock.assert_called_once_with(
-            SYSTEMATIZATION_PROMPT.format(
+            SISTEMATIZATION_PROMPT.format(
                 product_description=test_product_description,
                 risk_description=test_risk_description,
-                systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
+                sistematization_paper=SISTEMATIZATION_PAPER_PATH.read_text(),
             )
         )
 
         mock_get_llm.reset_mock()
 
 
-@patch("aspis.systematization.get_llm")
-def test_get_systematized_concepts_success(mock_get_llm: Mock) -> None:
+@patch("aspis.sistematization.get_llm")
+def test_get_sistematized_concepts_success(mock_get_llm: Mock) -> None:
     test_concepts = [
         {
             "title": "test concept 1",
@@ -126,7 +126,7 @@ def test_get_systematized_concepts_success(mock_get_llm: Mock) -> None:
         test_answers = ["test answer to question 1", "test answer to question 2"]
         test_openai_api_key = "test api key"
 
-        systematized_concepts = get_systematized_concepts(
+        sistematized_concepts = get_sistematized_concepts(
             product_description=test_product_description,
             risk_description=test_risk_description,
             questions=test_questions,
@@ -136,20 +136,20 @@ def test_get_systematized_concepts_success(mock_get_llm: Mock) -> None:
 
         mock_get_llm.assert_called_once_with(test_openai_api_key)
         invoke_mock.assert_called_once_with(
-            SYSTEMATIZED_CONCEPTS_PROMPT.format(
+            SISTEMATIZED_CONCEPTS_PROMPT.format(
                 product_description=test_product_description,
                 risk_description=test_risk_description,
-                systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
+                sistematization_paper=SISTEMATIZATION_PAPER_PATH.read_text(),
                 questions_and_answers=format_questions_and_answers(test_questions, test_answers),
             )
         )
-        assert systematized_concepts == [SystematizedConcept(**test_concept) for test_concept in test_concepts]
+        assert sistematized_concepts == [SistematizedConcept(**test_concept) for test_concept in test_concepts]
 
         mock_get_llm.reset_mock()
 
 
-@patch("aspis.systematization.get_llm")
-def test_get_systematized_concepts_failure_invalid_results(mock_get_llm: Mock) -> None:
+@patch("aspis.sistematization.get_llm")
+def test_get_sistematized_concepts_failure_invalid_results(mock_get_llm: Mock) -> None:
     invalid_model_responses = [
         "invalid json",
         '["invalid", "json"]',
@@ -170,7 +170,7 @@ def test_get_systematized_concepts_failure_invalid_results(mock_get_llm: Mock) -
         test_answers = ["test answer to question 1", "test answer to question 2"]
         test_openai_api_key = "test api key"
 
-        systematized_concepts = get_systematized_concepts(
+        sistematized_concepts = get_sistematized_concepts(
             product_description=test_product_description,
             risk_description=test_risk_description,
             questions=test_questions,
@@ -178,13 +178,13 @@ def test_get_systematized_concepts_failure_invalid_results(mock_get_llm: Mock) -
             openai_api_key=test_openai_api_key,
         )
 
-        assert systematized_concepts is None
+        assert sistematized_concepts is None
         mock_get_llm.assert_called_once_with(test_openai_api_key)
         invoke_mock.assert_called_once_with(
-            SYSTEMATIZED_CONCEPTS_PROMPT.format(
+            SISTEMATIZED_CONCEPTS_PROMPT.format(
                 product_description=test_product_description,
                 risk_description=test_risk_description,
-                systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
+                sistematization_paper=SISTEMATIZATION_PAPER_PATH.read_text(),
                 questions_and_answers=format_questions_and_answers(test_questions, test_answers),
             )
         )
