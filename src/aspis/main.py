@@ -2,10 +2,10 @@
 
 import streamlit as st
 
-from aspis.sistematization import (
-    SistematizedConcept,
-    get_sistematization_questions,
-    get_sistematized_concepts,
+from aspis.systematization import (
+    SystematizedConcept,
+    get_systematization_questions,
+    get_systematized_concepts,
 )
 
 
@@ -18,18 +18,18 @@ def main() -> None:
     risk_description = st.session_state.get("risk_description", "")
     product_description = st.session_state.get("product_description", "")
     follow_up_questions = st.session_state.get("follow_up_questions", None)
-    sistematization_answers = st.session_state.get("sistematization_answers", None)
-    sistematized_concepts = st.session_state.get("sistematized_concepts", None)
+    systematization_answers = st.session_state.get("systematization_answers", None)
+    systematized_concepts = st.session_state.get("systematized_concepts", None)
 
     if not openai_api_key or not product_description or not risk_description:
         render_landing_page()
 
     # Generating and rendering the follow up questions
-    elif sistematization_answers is None:
+    elif systematization_answers is None:
         # Generate questions if not already generated
         if follow_up_questions is None or len(follow_up_questions) == 0:
             with st.spinner("Generating questions..."):
-                follow_up_questions = get_sistematization_questions(
+                follow_up_questions = get_systematization_questions(
                     openai_api_key=openai_api_key,
                     risk_description=risk_description,
                     product_description=product_description,
@@ -45,24 +45,24 @@ def main() -> None:
 
     # Generating and rendering the systematized concepts
     else:
-        if sistematized_concepts is None:
+        if systematized_concepts is None:
             # Answers have been submitted, generate and display systematized concepts
             with st.spinner("Generating systematized concepts..."):
-                sistematized_concepts = get_sistematized_concepts(
+                systematized_concepts = get_systematized_concepts(
                     product_description=product_description,
                     risk_description=risk_description,
                     questions=follow_up_questions,
-                    answers=sistematization_answers,
+                    answers=systematization_answers,
                     openai_api_key=openai_api_key,
                 )
 
-        if sistematized_concepts is None:
+        if systematized_concepts is None:
             st.error("Error generating systematized concepts. Please try again.")
             return
 
-        st.session_state.sistematized_concepts = sistematized_concepts
+        st.session_state.systematized_concepts = systematized_concepts
 
-        render_sistematized_concepts(sistematized_concepts)
+        render_systematized_concepts(systematized_concepts)
 
 
 def render_landing_page() -> None:
@@ -143,15 +143,15 @@ def render_follow_up_questions(follow_up_questions: list[str]) -> None:
                     st.error(f"Please answer question {i + 1}.")
                     return
 
-            st.session_state.sistematization_answers = current_answers
+            st.session_state.systematization_answers = current_answers
             st.rerun()
 
 
-def render_sistematized_concepts(sistematized_concepts: list[SistematizedConcept]) -> None:
+def render_systematized_concepts(systematized_concepts: list[SystematizedConcept]) -> None:
     """Render the systematized concepts with titles and bodies.
 
     Args:
-        sistematized_concepts: The list of systematized concepts to display.
+        systematized_concepts: The list of systematized concepts to display.
     """
     st.markdown("### Systematized Concepts")
 
@@ -161,7 +161,7 @@ def render_sistematized_concepts(sistematized_concepts: list[SistematizedConcept
         "operationalized into a measurement instrument."
     )
 
-    for i, concept in enumerate(sistematized_concepts, 1):
+    for i, concept in enumerate(systematized_concepts, 1):
         with st.container():
             st.markdown(f"#### {i}. {concept.title}")
             st.markdown(concept.body)
