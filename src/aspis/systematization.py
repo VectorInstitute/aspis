@@ -5,10 +5,9 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
-from pydantic import SecretStr
+
+from aspis.model import get_llm
 
 
 logging.basicConfig(
@@ -18,8 +17,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-MODEL = "gpt-4o"
-TEMPERATURE = 0.7
 SYSTEMATIZATION_PAPER_PATH = Path("src/aspis/data/systematization_paper.txt")
 
 SYSTEMATIZATION_PROMPT = ChatPromptTemplate.from_template(
@@ -210,18 +207,6 @@ def format_questions_and_answers(questions: list[str], answers: list[str]) -> st
         The questions and answers formatted for the prompt.
     """
     return "\n".join([f"Q: {question}\nA: {answer}" for question, answer in zip(questions, answers, strict=True)])
-
-
-def get_llm(api_key: str) -> BaseChatModel:
-    """Get the LLM object.
-
-    Args:
-        api_key: The OpenAI API key to set up the LLM.
-
-    Returns:
-        The LLM.
-    """
-    return ChatOpenAI(model=MODEL, temperature=TEMPERATURE, api_key=SecretStr(api_key))
 
 
 def clean_model_output(output: str) -> str:
