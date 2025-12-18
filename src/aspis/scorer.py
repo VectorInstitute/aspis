@@ -1,7 +1,7 @@
 """Scorer for applications using Aspis as anLLM-as-a-judge."""
 
 from enum import Enum
-from typing import Protocol
+from typing import Any, Protocol
 
 from pydantic import BaseModel
 
@@ -36,17 +36,14 @@ class TaskState(BaseModel):
 
     Attributes:
         model: Model being used to evaluate the sample.
-        uuid: Globally unique identifier for sample run.
         input: Input from the Sample, should be considered immutable.
         user_prompt: User prompt for this state.
-        output: Output from the model.
+        metadata: Metadata for the task.
     """
 
-    uuid: str
     model: ScorerModel
     input: str
     user_prompt: str
-    output: str
     metadata: TaskMetadata
 
 
@@ -64,6 +61,14 @@ class Score(BaseModel):
 
 class Scorer(Protocol):
     """Scorer for applications using Aspis as anLLM-as-a-judge."""
+
+    def __init__(self, **kwargs: Any):
+        """Initialize the scorer.
+
+        Args:
+            **kwargs: Additional arguments for the scorer.
+        """
+        ...
 
     async def __call__(self, state: TaskState) -> Score:
         """Score the task.
