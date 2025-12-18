@@ -7,7 +7,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 from pytest import raises
 
-from aspis.systematization import (
+from aspis.ui.systematization import (
     MODEL,
     SYSTEMATIZATION_PAPER_PATH,
     SYSTEMATIZATION_PROMPT,
@@ -21,7 +21,7 @@ from aspis.systematization import (
 )
 
 
-@patch("aspis.systematization.get_llm")
+@patch("aspis.ui.systematization.get_llm")
 def test_get_systematization_questions_success(mock_get_llm: Mock) -> None:
     model_responses = [
         '["test question 1", "test question 2"]',
@@ -57,7 +57,7 @@ def test_get_systematization_questions_success(mock_get_llm: Mock) -> None:
         mock_get_llm.reset_mock()
 
 
-@patch("aspis.systematization.get_llm")
+@patch("aspis.ui.systematization.get_llm")
 def test_get_systematization_questions_failure_invalid_results(mock_get_llm: Mock) -> None:
     invalid_model_responses = [
         "invalid json",
@@ -96,7 +96,7 @@ def test_get_systematization_questions_failure_invalid_results(mock_get_llm: Moc
         mock_get_llm.reset_mock()
 
 
-@patch("aspis.systematization.get_llm")
+@patch("aspis.ui.systematization.get_llm")
 def test_get_systematized_concepts_success(mock_get_llm: Mock) -> None:
     test_concepts = [
         {
@@ -148,7 +148,7 @@ def test_get_systematized_concepts_success(mock_get_llm: Mock) -> None:
         mock_get_llm.reset_mock()
 
 
-@patch("aspis.systematization.get_llm")
+@patch("aspis.ui.systematization.get_llm")
 def test_get_systematized_concepts_failure_invalid_results(mock_get_llm: Mock) -> None:
     invalid_model_responses = [
         "invalid json",

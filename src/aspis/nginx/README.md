@@ -41,7 +41,7 @@ After configuring the app from the main [README.md](../../../README.md) file,
 you can start both services with the following commands:
 
 ```bash
-streamlit run src/aspis/main.py
+streamlit run src/aspis/ui/main.py
 ```
 
 ```bash

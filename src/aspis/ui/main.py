@@ -2,7 +2,7 @@
 
 import streamlit as st
 
-from aspis.systematization import (
+from aspis.ui.systematization import (
     SystematizedConcept,
     get_systematization_questions,
     get_systematized_concepts,

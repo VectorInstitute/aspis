@@ -4,11 +4,11 @@ from unittest.mock import Mock, patch
 
 from streamlit.testing.v1 import AppTest
 
-from aspis.systematization import SystematizedConcept
+from aspis.ui.systematization import SystematizedConcept
 
 
 def test_main_render_inputs_when_empty() -> None:
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
     assert app.title[0].value == "🛡️ Aspis"
@@ -23,9 +23,9 @@ def test_main_render_inputs_when_empty() -> None:
     assert app.text_area[1].label == "What is the AI risk you want to create a measurement instrument for?"
 
 
-@patch("aspis.systematization.get_systematization_questions")
+@patch("aspis.ui.systematization.get_systematization_questions")
 def test_main_ask_for_questions_when_inputs_are_set(mock_get_systematization_questions: Mock) -> None:
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
 
     app.session_state.openai_api_key = "test api key"
     app.session_state.risk_description = "test risk description"
@@ -40,7 +40,7 @@ def test_main_ask_for_questions_when_inputs_are_set(mock_get_systematization_que
     assert call_args_list[0].kwargs["openai_api_key"] == "test api key"
 
 
-@patch("aspis.systematization.get_systematization_questions")
+@patch("aspis.ui.systematization.get_systematization_questions")
 def test_main_render_error_messages_when_inputs_are_not_set(mock_get_systematization_questions: Mock) -> None:
     test_api_key = "test api key"
     test_risk_description = "test risk description"
@@ -48,7 +48,7 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_get_systematiza
     mock_get_systematization_questions.return_value = ["test question"]
 
     # Empty API key
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
     app.text_input[0].set_value("")
     app.text_area[0].set_value(test_product_description)
@@ -60,7 +60,7 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_get_systematiza
     assert app.error[0].value == "Please enter an Open AI API key before proceeding."
 
     # Empty risk description
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
     app.text_input[0].set_value(test_api_key)
     app.text_area[1].set_value("")
@@ -72,7 +72,7 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_get_systematiza
     assert app.error[0].value == "Please enter a risk description before proceeding."
 
     # Empty product description
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
     app.text_input[0].set_value(test_api_key)
     app.text_area[1].set_value(test_risk_description)
@@ -84,7 +84,7 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_get_systematiza
     assert app.error[0].value == "Please enter a product description before proceeding."
 
     # All inputs are set
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
     app.text_input[0].set_value(test_api_key)
     app.text_area[1].set_value(test_risk_description)
@@ -102,11 +102,11 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_get_systematiza
     mock_get_systematization_questions.assert_called()
 
 
-@patch("aspis.systematization.get_systematization_questions")
+@patch("aspis.ui.systematization.get_systematization_questions")
 def test_main_render_error_when_questions_are_none(mock_get_systematization_questions: Mock) -> None:
     mock_get_systematization_questions.return_value = None
 
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
     app.text_input[0].set_value("test api key")
@@ -124,12 +124,12 @@ def test_main_render_error_when_questions_are_none(mock_get_systematization_ques
     assert app.error[0].value == "Error generating questions. Please try again."
 
 
-@patch("aspis.systematization.get_systematization_questions")
+@patch("aspis.ui.systematization.get_systematization_questions")
 def test_main_render_questions_on_success(mock_get_systematization_questions: Mock) -> None:
     test_questions = ["test question 1", "test question 2"]
     mock_get_systematization_questions.return_value = test_questions
 
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
     app.text_input[0].set_value("test api key")
@@ -148,12 +148,12 @@ def test_main_render_questions_on_success(mock_get_systematization_questions: Mo
         assert app.text_area[i].label == rf"{i + 1}\. {test_questions[i]}"
 
 
-@patch("aspis.systematization.get_systematization_questions")
+@patch("aspis.ui.systematization.get_systematization_questions")
 def test_main_error_when_answers_are_empty(mock_get_systematization_questions: Mock) -> None:
     test_questions = ["test question 1", "test question 2"]
     mock_get_systematization_questions.return_value = test_questions
 
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
     app.text_input[0].set_value("test api key")
@@ -170,8 +170,8 @@ def test_main_error_when_answers_are_empty(mock_get_systematization_questions: M
     assert app.error[0].value == "Please answer question 1."
 
 
-@patch("aspis.systematization.get_systematization_questions")
-@patch("aspis.systematization.get_systematized_concepts")
+@patch("aspis.ui.systematization.get_systematization_questions")
+@patch("aspis.ui.systematization.get_systematized_concepts")
 def test_main_saves_answers_on_success(
     mock_get_systematized_concepts: Mock,
     mock_get_systematization_questions: Mock,
@@ -181,7 +181,7 @@ def test_main_saves_answers_on_success(
     mock_get_systematization_questions.return_value = test_questions
     mock_get_systematized_concepts.return_value = []
 
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
     app.text_input[0].set_value("test api key")
@@ -199,8 +199,8 @@ def test_main_saves_answers_on_success(
     assert app.session_state.systematization_answers == test_answers
 
 
-@patch("aspis.systematization.get_systematization_questions")
-@patch("aspis.systematization.get_systematized_concepts")
+@patch("aspis.ui.systematization.get_systematization_questions")
+@patch("aspis.ui.systematization.get_systematized_concepts")
 def test_main_render_results_when_answers_are_set(
     mock_get_systematized_concepts: Mock,
     mock_get_systematization_questions: Mock,
@@ -226,7 +226,7 @@ def test_main_render_results_when_answers_are_set(
     ]
     mock_get_systematized_concepts.return_value = test_systematized_concepts
 
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
     app.text_input[0].set_value(test_api_key)
@@ -257,8 +257,8 @@ def test_main_render_results_when_answers_are_set(
     assert app.code[1].value == test_systematized_concepts[1].prompt_template
 
 
-@patch("aspis.systematization.get_systematization_questions")
-@patch("aspis.systematization.get_systematized_concepts")
+@patch("aspis.ui.systematization.get_systematization_questions")
+@patch("aspis.ui.systematization.get_systematized_concepts")
 def test_main_render_error_when_systematized_concepts_are_none(
     mock_get_systematized_concepts: Mock,
     mock_get_systematization_questions: Mock,
@@ -272,7 +272,7 @@ def test_main_render_error_when_systematized_concepts_are_none(
     test_answers = ["test answer to question 1", "test answer to question 2"]
     mock_get_systematized_concepts.return_value = None
 
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
     app.text_input[0].set_value(test_api_key)
