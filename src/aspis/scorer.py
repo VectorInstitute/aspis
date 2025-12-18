@@ -62,7 +62,7 @@ class Score(BaseModel):
 
 
 class Scorer(Protocol):
-    """Scorer for applications using Aspis as anLLM-as-a-judge."""
+    """A protocol to define a scorer for a given TaskState."""
 
     def __init__(self, **kwargs: Any):
         """Initialize the scorer.

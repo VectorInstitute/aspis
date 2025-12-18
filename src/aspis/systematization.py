@@ -99,7 +99,7 @@ def get_systematization_questions(
 
     Returns:
         The follow up systematization questions. Will be None if the model fails to
-        return a valid JSON.
+            return a valid JSON.
     """
     llm = get_llm(openai_api_key)
     response = llm.invoke(
@@ -158,7 +158,7 @@ def get_systematized_concepts(
 
     Returns:
         A list of systematized concepts with titles, bodies, and prompt templates.
-        Will be None if the model fails to return a valid JSON.
+            Will be None if the model fails to return a valid JSON.
     """
     # Format questions and answers for the prompt
     questions_and_answers = format_questions_and_answers(questions, answers)

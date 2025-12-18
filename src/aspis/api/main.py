@@ -55,7 +55,7 @@ async def evaluate(
 
     Returns:
         A list of evaluations for the input text, one for each systematized concept
-        in the file.
+            in the file.
     """
     file_content = await systematized_concepts_file.read()
     file_text = file_content.decode("utf-8")
