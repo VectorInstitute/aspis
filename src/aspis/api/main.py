@@ -43,16 +43,16 @@ async def evaluate(
         text_to_evaluate: The text to evaluate.
         openai_api_key: The OpenAI API key to use the LLM.
         systematized_concepts_file: The file containing the systematized concepts.
-            It must contain a `systematized_concepts` key with a list of systematized
-            concepts. Each systematized concept must contain a `title` key and a
-            `prompt_template` key. Example:
-    ```
-    systematized_concepts:
-    - title: "Systematized concept 1"
-        prompt_template: "Prompt template 1"
-    - title: "Systematized concept 2"
-        prompt_template: "Prompt template 2"
-    ```
+            It must be a `.yaml` file that contains a `systematized_concepts` key
+            with a list of systematized concepts. Each systematized concept must
+            contain a `title` key and a `prompt_template` key. Example:
+            \n
+                systematized_concepts:
+                - title: "Systematized concept 1"
+                  prompt_template: "Prompt template 1"
+                - title: "Systematized concept 2"
+                  prompt_template: "Prompt template 2"
+
     Returns:
         A list of evaluations for the input text, one for each systematized concept
         in the file.
