@@ -29,6 +29,8 @@ class TaskMetadata(BaseModel):
     """Metadata for the task."""
 
     value_to_replace: str
+    text_prefix: str
+    text_suffix: str
 
 
 class TaskState(BaseModel):
@@ -102,7 +104,10 @@ class OpenAIScorer(Scorer):
         Returns:
             The score for the given task state.
         """
-        score_prompt = state.user_prompt.replace(state.metadata.value_to_replace, state.input)
+        score_prompt = state.user_prompt.replace(
+            state.metadata.value_to_replace,
+            f"{state.metadata.text_prefix}{state.input}{state.metadata.text_suffix}",
+        )
 
         llm = get_llm(self.api_key)
         response = llm.invoke(score_prompt)

@@ -1,47 +1,60 @@
 """Functions for the programmatic API of the Aspis application."""
 
+import datetime
+import logging
+
 import yaml
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, Form, UploadFile
 from pydantic import BaseModel
 
 from aspis.scorer import Score, ScorerModel, TaskMetadata, TaskState
 
 
-app = FastAPI()
+app = FastAPI(title="Aspis API")
+logger = logging.getLogger("uvicorn.access")
 
 
-class ScoreResponse(BaseModel):
-    """Response for the score endpoint.
+class EvaluationResponse(BaseModel):
+    """Response for the evaluation endpoint.
 
     Attributes:
         systematized_concept_title: The title of the systematized concept this
-            score is for.
-        score: The score for the input text against this systematized concept.
-        task_state: The task state that was used to produce the score.
+            evaluation is for.
+        evaluation: The evaluation for the input text against this systematized concept.
+        task_state: The task state that was used to produce the evaluation.
     """
 
     systematized_concept_title: str
-    score: Score
+    evaluation: Score
     task_state: TaskState
 
 
-@app.post("/score_from_file")
-async def score(
-    text_to_score: str,
-    openai_api_key: str,
+@app.post("/evaluate_from_file")
+async def evaluate(
+    text_to_evaluate: str = Form(...),
+    openai_api_key: str = Form(...),
     systematized_concepts_file: UploadFile = File(...),  # noqa: B008 mypy's false positive on File(...)
-) -> list[ScoreResponse]:
-    """Score an input text using systematized concepts from a file.
+) -> list[EvaluationResponse]:
+    """Evaluate an input text using systematized concepts from a file.
 
-    Returns one score per systematized concept.
+    Returns one evaluation per systematized concept.
 
     Args:
-        text_to_score: The text to score.
+        text_to_evaluate: The text to evaluate.
         openai_api_key: The OpenAI API key to use the LLM.
         systematized_concepts_file: The file containing the systematized concepts.
-
+            It must contain a `systematized_concepts` key with a list of systematized
+            concepts. Each systematized concept must contain a `title` key and a
+            `prompt_template` key. Example:
+    ```
+    systematized_concepts:
+    - title: "Systematized concept 1"
+        prompt_template: "Prompt template 1"
+    - title: "Systematized concept 2"
+        prompt_template: "Prompt template 2"
+    ```
     Returns:
-        A list of scores for the input text, one for each systematized concept
+        A list of evaluations for the input text, one for each systematized concept
         in the file.
     """
     file_content = await systematized_concepts_file.read()
@@ -57,27 +70,34 @@ async def score(
     scorer_class = scorer_model.get_scorer_class()
     scorer = scorer_class(api_key=openai_api_key)
 
-    score_responses = []
+    evaluation_responses = []
     for systematized_concept in systematized_concepts_file_content["systematized_concepts"]:
-        assert ["title", "prompt_template"] in systematized_concept, (
-            "Each systematized concept must contain a 'title' and 'prompt_template' key"
-        )
+        assert "title" in systematized_concept, "Systematized concepts must contain a 'title' key"
+        assert "prompt_template" in systematized_concept, "Systematized concepts must contain a 'prompt_template' key"
 
         task_state = TaskState(
             model=scorer_model,
-            input=text_to_score,
+            input=text_to_evaluate,
             user_prompt=systematized_concept["prompt_template"],
-            metadata=TaskMetadata(value_to_replace="<text_to_score/>"),
+            metadata=TaskMetadata(
+                value_to_replace="<text_to_evaluate/>",
+                text_prefix="<text>",
+                text_suffix="</text>",
+            ),
         )
 
+        logger.info(
+            f"{datetime.datetime.now()}: "
+            + f"Evaluating input text against concept '{systematized_concept['title']}'..."
+        )
         score = await scorer(task_state)
 
-        score_responses.append(
-            ScoreResponse(
+        evaluation_responses.append(
+            EvaluationResponse(
                 systematized_concept_title=systematized_concept["title"],
-                score=score,
+                evaluation=score,
                 task_state=task_state,
             )
         )
 
-    return score_responses
+    return evaluation_responses
