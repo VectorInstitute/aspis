@@ -56,9 +56,10 @@ fastapi dev src/aspis/api/main.py
 The API will be available at port `8080`.
 
 The main endpoint is `http://localhost:8000/evaluate_from_file`. It is a `POST` REST API
-endpoint that takes as form data an string input text `text_to_evaluate`, an `openai_api_key`
-to access the models and a file upload `systematized_concepts_file`, which can be downloaded
-after answering all the questions from the main app.
+endpoint that takes a form data with the following fields:
+ - An string input text `text_to_evaluate`
+ - An `openai_api_key` to access the models
+ - A file upload `systematized_concepts_file`, which can be downloaded after answering all the questions from the main app.
 
-To see the documentation for the available endpoints, you can access `http://localhost:8000/docs`
-on your browser.
+To see the full documentation for the available endpoints, you can access
+`http://localhost:8000/docs` on your browser.
