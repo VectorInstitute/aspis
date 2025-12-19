@@ -4,7 +4,7 @@ import datetime
 import logging
 
 import yaml
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from aspis.scorer import Score, ScorerModel, TaskMetadata, TaskState
@@ -57,47 +57,57 @@ async def evaluate(
         A list of evaluations for the input text, one for each systematized concept
             in the file.
     """
-    file_content = await systematized_concepts_file.read()
-    file_text = file_content.decode("utf-8")
+    try:
+        file_content = await systematized_concepts_file.read()
+        file_text = file_content.decode("utf-8")
 
-    systematized_concepts_file_content = yaml.safe_load(file_text)
+        systematized_concepts_file_content = yaml.safe_load(file_text)
 
-    assert "systematized_concepts" in systematized_concepts_file_content, (
-        "The file must contain a 'systematized_concepts' key"
-    )
-
-    scorer_model = ScorerModel.GPT_4O
-    scorer_class = scorer_model.get_scorer_class()
-    scorer = scorer_class(api_key=openai_api_key)
-
-    evaluation_responses = []
-    for systematized_concept in systematized_concepts_file_content["systematized_concepts"]:
-        assert "title" in systematized_concept, "Systematized concepts must contain a 'title' key"
-        assert "prompt_template" in systematized_concept, "Systematized concepts must contain a 'prompt_template' key"
-
-        task_state = TaskState(
-            model=scorer_model,
-            input=text_to_evaluate,
-            user_prompt=systematized_concept["prompt_template"],
-            metadata=TaskMetadata(
-                value_to_replace="<text_to_evaluate/>",
-                text_prefix="<text>",
-                text_suffix="</text>",
-            ),
+        assert "systematized_concepts" in systematized_concepts_file_content, (
+            "The file must contain a 'systematized_concepts' key"
         )
 
-        logger.info(
-            f"{datetime.datetime.now()}: "
-            + f"Evaluating input text against concept '{systematized_concept['title']}'..."
-        )
-        score = await scorer(task_state)
+        scorer_model = ScorerModel.GPT_4O
+        scorer_class = scorer_model.get_scorer_class()
+        scorer = scorer_class(api_key=openai_api_key)
 
-        evaluation_responses.append(
-            EvaluationResponse(
-                systematized_concept_title=systematized_concept["title"],
-                evaluation=score,
-                task_state=task_state,
+        evaluation_responses = []
+        for systematized_concept in systematized_concepts_file_content["systematized_concepts"]:
+            assert "title" in systematized_concept, "Systematized concepts must contain a 'title' key"
+            assert "prompt_template" in systematized_concept, (
+                "Systematized concepts must contain a 'prompt_template' key"
             )
-        )
 
-    return evaluation_responses
+            task_state = TaskState(
+                model=scorer_model,
+                input=text_to_evaluate,
+                user_prompt=systematized_concept["prompt_template"],
+                metadata=TaskMetadata(
+                    value_to_replace="<text_to_evaluate/>",
+                    text_prefix="<text>",
+                    text_suffix="</text>",
+                ),
+            )
+
+            logger.info(
+                f"{datetime.datetime.now()}: "
+                + f"Evaluating input text against concept '{systematized_concept['title']}'..."
+            )
+            score = await scorer(task_state)
+
+            evaluation_responses.append(
+                EvaluationResponse(
+                    systematized_concept_title=systematized_concept["title"],
+                    evaluation=score,
+                    task_state=task_state,
+                )
+            )
+
+        return evaluation_responses
+
+    except AssertionError as e:
+        logger.exception(f"Assertion error during evaluation: {e}")
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    except Exception as e:
+        logger.exception(f"Unexpected error during evaluation: {e}")
+        raise HTTPException(status_code=500, detail=f"Evaluation failed: {str(e)}") from e
