@@ -29,7 +29,7 @@ is based on the methodology described in the paper
 ["Evaluating Generative AI Systems is a Social Science Measurement Challenge"](https://arxiv.org/abs/2411.10939).
 
 
-## 🧑‍💻 Running From Source
+## 👩‍💻 Running From Source
 
 ### 🔧 Installing the Dependencies
 
