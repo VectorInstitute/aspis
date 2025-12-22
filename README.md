@@ -35,7 +35,7 @@ source .venv/bin/activate
 Aspis runs in a [Streamlit](https://streamlit.io/) container. To execute it, use the command below:
 
 ```bash
-streamlit run src/aspis/main.py
+streamlit run src/aspis/ui/main.py
 ```
 
 The app will be available at `http://localhost:8501`.

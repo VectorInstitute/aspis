@@ -1,1 +1,1 @@
-"""Unit tests for aspis."""
+"""Unit tests for Aspis core functionality."""

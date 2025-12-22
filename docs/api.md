@@ -7,9 +7,16 @@
       show_root_heading: true
       show_root_full_path: true
 
-## Main Module
+## UI Module
 
-::: aspis.main
+::: aspis.ui.main
+    options:
+      show_root_heading: true
+      show_root_full_path: true
+
+## Systematization Module
+
+::: aspis.systematization
     options:
       show_root_heading: true
       show_root_full_path: true

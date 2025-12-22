@@ -17,7 +17,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-SYSTEMATIZATION_PAPER_PATH = Path("src/aspis/data/systematization_paper.txt")
+SYSTEMATIZATION_PAPER_PATH = Path(__file__).parent / "data" / "systematization_paper.txt"
 
 SYSTEMATIZATION_PROMPT = ChatPromptTemplate.from_template(
     """
