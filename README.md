@@ -25,7 +25,7 @@ against specific risk criteria
 
 Aspis uses a systematization methodology to break down abstract AI risks into
 concrete, evaluable concepts, enabling systematic risk assessment of AI systems.
-is based on the methodology described in the paper
+It is based on the methodology described in the paper
 ["Evaluating Generative AI Systems is a Social Science Measurement Challenge"](https://arxiv.org/abs/2411.10939).
 
 
