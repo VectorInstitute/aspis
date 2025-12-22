@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 MODEL = "gpt-4o"
 TEMPERATURE = 0.7
-SYSTEMATIZATION_PAPER_PATH = Path("src/aspis/data/systematization_paper.txt")
+SYSTEMATIZATION_PAPER_PATH = Path(__file__).parent / "data" / "systematization_paper.txt"
 
 SYSTEMATIZATION_PROMPT = ChatPromptTemplate.from_template(
     """

@@ -1,1 +1,1 @@
-"""Root for the Aspis application files."""
+"""Root for the Aspis application core functionality."""

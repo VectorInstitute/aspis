@@ -12,7 +12,7 @@ from aspis.systematization import SystematizedConcept
 
 
 def test_main_render_inputs_when_empty() -> None:
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
     assert app.title[0].value == "🛡️ Aspis"
@@ -29,7 +29,7 @@ def test_main_render_inputs_when_empty() -> None:
 
 @patch("aspis.systematization.get_systematization_questions")
 def test_main_ask_for_questions_when_inputs_are_set(mock_get_systematization_questions: Mock) -> None:
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
 
     app.session_state.openai_api_key = "test api key"
     app.session_state.risk_description = "test risk description"
@@ -52,7 +52,7 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_get_systematiza
     mock_get_systematization_questions.return_value = ["test question"]
 
     # Empty API key
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
     app.text_input[0].set_value("")
     app.text_area[0].set_value(test_product_description)
@@ -64,7 +64,7 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_get_systematiza
     assert app.error[0].value == "Please enter an Open AI API key before proceeding."
 
     # Empty risk description
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
     app.text_input[0].set_value(test_api_key)
     app.text_area[1].set_value("")
@@ -76,7 +76,7 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_get_systematiza
     assert app.error[0].value == "Please enter a risk description before proceeding."
 
     # Empty product description
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
     app.text_input[0].set_value(test_api_key)
     app.text_area[1].set_value(test_risk_description)
@@ -88,7 +88,7 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_get_systematiza
     assert app.error[0].value == "Please enter a product description before proceeding."
 
     # All inputs are set
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
     app.text_input[0].set_value(test_api_key)
     app.text_area[1].set_value(test_risk_description)
@@ -110,7 +110,7 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_get_systematiza
 def test_main_render_error_when_questions_are_none(mock_get_systematization_questions: Mock) -> None:
     mock_get_systematization_questions.return_value = None
 
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
     app.text_input[0].set_value("test api key")
@@ -133,7 +133,7 @@ def test_main_render_questions_on_success(mock_get_systematization_questions: Mo
     test_questions = ["test question 1", "test question 2"]
     mock_get_systematization_questions.return_value = test_questions
 
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
     app.text_input[0].set_value("test api key")
@@ -157,7 +157,7 @@ def test_main_error_when_answers_are_empty(mock_get_systematization_questions: M
     test_questions = ["test question 1", "test question 2"]
     mock_get_systematization_questions.return_value = test_questions
 
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
     app.text_input[0].set_value("test api key")
@@ -185,7 +185,7 @@ def test_main_saves_answers_on_success(
     mock_get_systematization_questions.return_value = test_questions
     mock_get_systematized_concepts.return_value = []
 
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
     app.text_input[0].set_value("test api key")
@@ -230,7 +230,7 @@ def test_main_render_results_when_answers_are_set(
     ]
     mock_get_systematized_concepts.return_value = test_systematized_concepts
 
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
     app.text_input[0].set_value(test_api_key)
@@ -276,7 +276,7 @@ def test_main_render_error_when_systematized_concepts_are_none(
     test_answers = ["test answer to question 1", "test answer to question 2"]
     mock_get_systematized_concepts.return_value = None
 
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
     app.text_input[0].set_value(test_api_key)
@@ -302,7 +302,7 @@ def test_main_render_error_when_systematized_concepts_are_none(
     assert app.error[0].value == "Error generating systematized concepts. Please try again."
 
 
-@patch("aspis.main.st.file_uploader")  # this has to be mocked because AppTest doesn't support file uploaders yet
+@patch("aspis.ui.main.st.file_uploader")  # this has to be mocked because AppTest doesn't support file uploaders yet
 def test_main_upload_file_success(mock_file_uploader: Mock) -> None:
     test_systematized_concepts = [
         SystematizedConcept(
@@ -326,7 +326,7 @@ def test_main_upload_file_success(mock_file_uploader: Mock) -> None:
 
     mock_file_uploader.return_value = BytesIO(yaml.safe_dump(test_yaml_data).encode("utf-8"))
 
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
     assert app.session_state.product_description == test_yaml_data["product_description"]
@@ -336,7 +336,7 @@ def test_main_upload_file_success(mock_file_uploader: Mock) -> None:
     assert app.session_state.systematized_concepts == test_systematized_concepts
 
 
-@patch("aspis.main.st.file_uploader")  # this has to be mocked because AppTest doesn't support file uploaders yet
+@patch("aspis.ui.main.st.file_uploader")  # this has to be mocked because AppTest doesn't support file uploaders yet
 def test_main_upload_file_failure_missing_field(mock_file_uploader: Mock) -> None:
     test_systematized_concepts = [
         SystematizedConcept(
@@ -364,7 +364,7 @@ def test_main_upload_file_failure_missing_field(mock_file_uploader: Mock) -> Non
 
         mock_file_uploader.return_value = BytesIO(yaml.safe_dump(test_yaml_data_copy).encode("utf-8"))
 
-        app = AppTest.from_file("src/aspis/main.py")
+        app = AppTest.from_file("src/aspis/ui/main.py")
         app.run()
 
         assert app.error[0].value == f"Error loading saved results: Key '{key}' is missing from the saved results."
@@ -378,7 +378,7 @@ def test_main_upload_file_failure_missing_field(mock_file_uploader: Mock) -> Non
 
         mock_file_uploader.return_value = BytesIO(yaml.safe_dump(test_yaml_data_copy).encode("utf-8"))
 
-        app = AppTest.from_file("src/aspis/main.py")
+        app = AppTest.from_file("src/aspis/ui/main.py")
         app.run()
 
         assert (
@@ -389,19 +389,19 @@ def test_main_upload_file_failure_missing_field(mock_file_uploader: Mock) -> Non
         mock_file_uploader.reset_mock()
 
 
-@patch("aspis.main.st.file_uploader")  # this has to be mocked because AppTest doesn't support file uploaders yet
+@patch("aspis.ui.main.st.file_uploader")  # this has to be mocked because AppTest doesn't support file uploaders yet
 def test_main_upload_file_failure_bad_format(mock_file_uploader: Mock) -> None:
     mock_file_uploader.return_value = BytesIO("[key: value".encode("utf-8"))
 
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
     assert "Error loading saved results" in app.error[0].value
 
 
-@patch("aspis.main.st.download_button")  # this has to be mocked because AppTest doesn't support download buttons yet
+@patch("aspis.ui.main.st.download_button")  # this has to be mocked because AppTest doesn't support download buttons yet
 def test_main_download_button(mock_download_button: Mock) -> None:
-    app = AppTest.from_file("src/aspis/main.py")
+    app = AppTest.from_file("src/aspis/ui/main.py")
 
     app.session_state.openai_api_key = "test api key"
     app.session_state.product_description = "test product description"
