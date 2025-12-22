@@ -3,19 +3,14 @@
 import json
 from unittest.mock import Mock, patch
 
-from langchain_openai import ChatOpenAI
-from pydantic import SecretStr
 from pytest import raises
 
 from aspis.systematization import (
-    MODEL,
     SYSTEMATIZATION_PAPER_PATH,
     SYSTEMATIZATION_PROMPT,
     SYSTEMATIZED_CONCEPTS_PROMPT,
-    TEMPERATURE,
     SystematizedConcept,
     format_questions_and_answers,
-    get_llm,
     get_systematization_questions,
     get_systematized_concepts,
 )
@@ -209,14 +204,3 @@ def test_format_questions_and_answers_failure_mismatched_lengths() -> None:
 
     with raises(ValueError):
         format_questions_and_answers(test_questions, test_answers)
-
-
-def test_get_llm() -> None:
-    test_openai_api_key = "test api key"
-
-    llm = get_llm(test_openai_api_key)
-
-    assert isinstance(llm, ChatOpenAI)
-    assert llm.openai_api_key == SecretStr(test_openai_api_key)
-    assert llm.model_name == MODEL
-    assert llm.temperature == TEMPERATURE
