@@ -14,13 +14,13 @@ descriptions into specific, measurable concepts that can be operationalized usin
 LLM-as-a-judge evaluation.
 
 **Key Features:**
-- **Systematization**: Transforms background concepts (product and risk descriptions)
+- ⚙️ **Systematization**: Transforms background concepts (product and risk descriptions)
 into well-defined, measurable systematized concepts
-- **Interactive UI**: Streamlit-based interface that guides you through the
+- 🌐 **Interactive UI**: Streamlit-based interface that guides you through the
 systematization process with follow-up questions
-- **REST API**: Programmatic access for batch evaluations and integration into
+- 🔗 **REST API**: Programmatic access for batch evaluations and integration into
 existing workflows
-- **LLM-as-a-Judge**: Generates ready-to-use prompt templates for evaluating text
+- ⚖️ **LLM-as-a-Judge**: Generates ready-to-use prompt templates for evaluating text
 against specific risk criteria
 
 Aspis uses a systematization methodology to break down abstract AI risks into
