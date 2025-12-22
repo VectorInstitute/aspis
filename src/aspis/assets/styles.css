@@ -1,0 +1,8 @@
+.stDownloadButton > button {
+    background: linear-gradient(135deg, #667eea 0%, #20c997 100%) !important;
+    color: white !important;
+    border: none !important;
+}
+.stDownloadButton > button:hover {
+    background: linear-gradient(135deg, #5568d3 0%, #1aa179 100%) !important;
+}
