@@ -11,7 +11,7 @@ from aspis.api.main import app
 
 
 @pytest.mark.integration_test
-@patch("aspis.scorer.get_llm")
+@patch("aspis.inferencer.get_llm")
 def test_evaluate_from_file_success(mock_get_llm: Mock) -> None:
     test_scores = ["test score 1", "test score 2"]
     invoke_mock = Mock()
@@ -31,6 +31,10 @@ def test_evaluate_from_file_success(mock_get_llm: Mock) -> None:
                 "title": "Test concept 2",
                 "prompt_template": "<text_to_evaluate/> Test template 2",
             },
+        ]
+        expected_prompts = [
+            sys_concept["prompt_template"].replace("<text_to_evaluate/>", f"<text>{test_text_to_evaluate}</text>")
+            for sys_concept in test_systematized_concepts
         ]
 
         file_content = yaml.safe_dump({"systematized_concepts": test_systematized_concepts}).encode("utf-8")
@@ -53,29 +57,17 @@ def test_evaluate_from_file_success(mock_get_llm: Mock) -> None:
         json_response = response.json()
         for i in range(len(json_response)):
             assert json_response[i]["systematized_concept_title"] == test_systematized_concepts[i]["title"]
-            assert json_response[i]["evaluation"]["score"] == test_scores[i]
-            assert json_response[i]["evaluation"]["explanation"] == test_scores[i]
-            assert json_response[i]["task_state"]["input"] == test_text_to_evaluate
-            assert json_response[i]["task_state"]["user_prompt"] == test_systematized_concepts[i]["prompt_template"]
+            assert json_response[i]["result"] == test_scores[i]
+            assert json_response[i]["prompt"] == expected_prompts[i]
 
         assert mock_get_llm.call_count == 2
         assert invoke_mock.call_count == 2
         mock_get_llm.assert_has_calls(
             [
                 call(test_openai_api_key),
-                call().invoke(
-                    test_systematized_concepts[0]["prompt_template"].replace(
-                        "<text_to_evaluate/>",
-                        f"<text>{test_text_to_evaluate}</text>",
-                    )
-                ),
+                call().invoke(expected_prompts[0]),
                 call(test_openai_api_key),
-                call().invoke(
-                    test_systematized_concepts[1]["prompt_template"].replace(
-                        "<text_to_evaluate/>",
-                        f"<text>{test_text_to_evaluate}</text>",
-                    )
-                ),
+                call().invoke(expected_prompts[1]),
             ]
         )
 

@@ -7,7 +7,7 @@ import yaml
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from aspis.scorer import Score, ScorerModel, TaskMetadata, TaskState
+from aspis.inferencer import get_inference_prompt, infer
 
 
 app = FastAPI(title="Aspis API")
@@ -20,13 +20,14 @@ class EvaluationResponse(BaseModel):
     Attributes:
         systematized_concept_title: The title of the systematized concept this
             evaluation is for.
-        evaluation: The evaluation for the input text against this systematized concept.
-        task_state: The task state that was used to produce the evaluation.
+        result: The result of the inference of the input text against this
+            systematized concept.
+        prompt: The prompt that was used to produce the result.
     """
 
     systematized_concept_title: str
-    evaluation: Score
-    task_state: TaskState
+    result: str
+    prompt: str
 
 
 @app.post("/evaluate_from_file")
@@ -67,10 +68,6 @@ async def evaluate(
             "The file must contain a 'systematized_concepts' key"
         )
 
-        scorer_model = ScorerModel.GPT_4O
-        scorer_class = scorer_model.get_scorer_class()
-        scorer = scorer_class(api_key=openai_api_key)
-
         evaluation_responses = []
         for systematized_concept in systematized_concepts_file_content["systematized_concepts"]:
             assert "title" in systematized_concept, "Systematized concepts must contain a 'title' key"
@@ -78,28 +75,17 @@ async def evaluate(
                 "Systematized concepts must contain a 'prompt_template' key"
             )
 
-            task_state = TaskState(
-                model=scorer_model,
-                input=text_to_evaluate,
-                user_prompt=systematized_concept["prompt_template"],
-                metadata=TaskMetadata(
-                    value_to_replace="<text_to_evaluate/>",
-                    text_prefix="<text>",
-                    text_suffix="</text>",
-                ),
-            )
-
             logger.info(
                 f"{datetime.datetime.now()}: "
                 + f"Evaluating input text against concept '{systematized_concept['title']}'..."
             )
-            score = await scorer(task_state)
+            result = infer(text_to_evaluate, systematized_concept["prompt_template"], openai_api_key)
 
             evaluation_responses.append(
                 EvaluationResponse(
                     systematized_concept_title=systematized_concept["title"],
-                    evaluation=score,
-                    task_state=task_state,
+                    result=result,
+                    prompt=get_inference_prompt(text_to_evaluate, systematized_concept["prompt_template"]),
                 )
             )
 
