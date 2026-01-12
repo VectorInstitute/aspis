@@ -2,16 +2,18 @@
 
 import asyncio
 import os
-from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from tempfile import TemporaryDirectory
 
-from inspect_ai import Task, task
+from inspect_ai import Task
 from inspect_ai import eval as inspect_ai_eval
 from inspect_ai.dataset import MemoryDataset, Sample
 from inspect_ai.log import EvalLog
 from inspect_ai.scorer import model_graded_qa
 from inspect_ai.solver import generate
+
+
+INFERENCE_MODEL = "openai/gpt-4o"
 
 
 async def infer(input_text: str, prompt_templates: list[str], api_key: str) -> list[str]:
@@ -33,21 +35,13 @@ async def infer(input_text: str, prompt_templates: list[str], api_key: str) -> l
         input_prompt = get_inference_prompt(input_text, prompt_template)
         samples.append(Sample(input=input_prompt, target=""))
 
-    @task
-    def model_graded_qa_task() -> Task:
-        return Task(
-            dataset=MemoryDataset(samples),
-            solver=[generate()],
-            scorer=model_graded_qa(),
-        )
-
     loop = asyncio.get_event_loop()
     with ThreadPoolExecutor() as executor:
         result = await loop.run_in_executor(
             executor,
             run_eval,
+            samples,
             api_key,
-            model_graded_qa_task,
         )
 
     assert len(result) == 1, "Expected exactly one result"
@@ -65,19 +59,24 @@ async def infer(input_text: str, prompt_templates: list[str], api_key: str) -> l
     return model_outputs
 
 
-def run_eval(api_key: str, task_function: Callable[[], Task]) -> list[EvalLog]:
-    """Helper function to run eval on a tyask with a specific API key.
+def run_eval(samples: list[Sample], api_key: str) -> list[EvalLog]:
+    """Helper function to run eval on a list of samples with a specific API key.
 
     Args:
+        samples: The list of samples to run the eval on.
         api_key: The API key to use to run the eval.
-        task_function: The function that returns the task to run the eval on.
 
     Returns:
         The result of the eval.
     """
+    task = Task(
+        dataset=MemoryDataset(samples),
+        solver=[generate()],
+        scorer=model_graded_qa(),
+    )
     with TemporaryDirectory() as temp_dir:
         os.environ["OPENAI_API_KEY"] = api_key
-        return inspect_ai_eval(task_function(), model="openai/gpt-4o", log_dir=temp_dir)
+        return inspect_ai_eval(task, model=INFERENCE_MODEL, log_dir=temp_dir)
 
 
 def get_inference_prompt(input_text: str, prompt: str) -> str:
