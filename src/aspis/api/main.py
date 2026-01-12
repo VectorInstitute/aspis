@@ -68,24 +68,26 @@ async def evaluate(
             "The file must contain a 'systematized_concepts' key"
         )
 
-        evaluation_responses = []
-        for systematized_concept in systematized_concepts_file_content["systematized_concepts"]:
+        systematized_concepts = systematized_concepts_file_content["systematized_concepts"]
+
+        prompt_templates = []
+        for systematized_concept in systematized_concepts:
             assert "title" in systematized_concept, "Systematized concepts must contain a 'title' key"
             assert "prompt_template" in systematized_concept, (
                 "Systematized concepts must contain a 'prompt_template' key"
             )
+            prompt_templates.append(systematized_concept["prompt_template"])
 
-            logger.info(
-                f"{datetime.datetime.now()}: "
-                + f"Evaluating input text against concept '{systematized_concept['title']}'..."
-            )
-            result = infer(text_to_evaluate, systematized_concept["prompt_template"], openai_api_key)
+        logger.info(f"{datetime.datetime.now()}: Evaluating input text against all concepts...")
+        results = await infer(text_to_evaluate, prompt_templates, openai_api_key)
 
+        evaluation_responses = []
+        for i in range(len(systematized_concepts)):
             evaluation_responses.append(
                 EvaluationResponse(
-                    systematized_concept_title=systematized_concept["title"],
-                    result=result,
-                    prompt=get_inference_prompt(text_to_evaluate, systematized_concept["prompt_template"]),
+                    systematized_concept_title=systematized_concepts[i]["title"],
+                    result=results[i],
+                    prompt=get_inference_prompt(text_to_evaluate, systematized_concepts[i]["prompt_template"]),
                 )
             )
 

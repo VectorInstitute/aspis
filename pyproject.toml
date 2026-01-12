@@ -8,6 +8,7 @@ license = "Apache-2.0"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi[standard]>=0.121.0",
+    "inspect-ai>=0.3.160",
     "langchain>=1.2.0",
     "langchain-openai>=0.3.31",
     "pydantic>=2.11.7",
