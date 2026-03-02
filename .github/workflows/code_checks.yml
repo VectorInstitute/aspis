@@ -29,17 +29,17 @@ jobs:
   run-code-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6.0.1
+      - uses: actions/checkout@v6.0.2
 
       - name: Install uv
-        uses: astral-sh/setup-uv@61cb8a9741eeb8a550a1b8544337180c0fc8476b
+        uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098
         with:
           # Install a specific version of uv.
           version: "0.5.21"
           enable-cache: true
 
       - name: "Set up Python"
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version-file: ".python-version"
 
@@ -55,8 +55,7 @@ jobs:
         uses: pypa/gh-action-pip-audit@1220774d901786e6f652ae159f7b6bc8fea6d266
         with:
           virtual-environment: .venv/
-          # GHSA-mhr3-j7m5-c7c9: This is a vulnerability in langgraph-checkpoint cannot be upgraded to v4
-          # GHSA-cfh3-3jmp-rvhc: This is a vulnerability in pillow that cannot be upgraded to v12
+          # GHSA-cfh3-3jmp-rvhc: This is a vulnerability in pillow that cannot be upgraded because
+          # streamlit has an issue: https://github.com/streamlit/streamlit/issues/12566
           ignore-vulns: |
-            GHSA-mhr3-j7m5-c7c9
             GHSA-cfh3-3jmp-rvhc
