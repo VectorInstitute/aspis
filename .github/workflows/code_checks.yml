@@ -56,7 +56,5 @@ jobs:
         with:
           virtual-environment: .venv/
           # GHSA-mhr3-j7m5-c7c9: This is a vulnerability in langgraph-checkpoint cannot be upgraded to v4
-          # GHSA-cfh3-3jmp-rvhc: This is a vulnerability in pillow that cannot be upgraded to v12
           ignore-vulns: |
             GHSA-mhr3-j7m5-c7c9
-            GHSA-cfh3-3jmp-rvhc
