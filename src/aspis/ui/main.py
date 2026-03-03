@@ -185,7 +185,7 @@ def render_systematized_concepts(systematized_concepts: list[SystematizedConcept
 
             with st.expander("📝 Measurement Prompt Template", expanded=False):
                 st.markdown("**Use this prompt template with an LLM judge to measure this concept:**")
-                st.code(concept.prompt_template, language="text")
+                st.code(concept.prompt_template, language="text", wrap_lines=True)
                 st.markdown("*Replace `<text_to_evaluate/>` with the text you want to evaluate.*")
 
             if i < len(systematized_concepts):
