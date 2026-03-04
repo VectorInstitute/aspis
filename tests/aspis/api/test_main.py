@@ -1,22 +1,32 @@
 """Test for the API main module."""
 
 from io import BytesIO
-from unittest.mock import Mock, call, patch
+from unittest.mock import ANY, Mock, patch
 
 import pytest
 import yaml
 from fastapi.testclient import TestClient
+from inspect_ai.scorer import model_graded_qa
+from inspect_ai.solver import generate
 
 from aspis.api.main import app
+from aspis.inferencer import INFERENCE_MODEL
 
 
 @pytest.mark.integration_test
-@patch("aspis.inferencer.get_llm")
-def test_evaluate_from_file_success(mock_get_llm: Mock) -> None:
+@patch("aspis.inferencer.inspect_ai_eval")
+def test_evaluate_from_file_success(mock_inspect_ai_eval: Mock) -> None:
     test_scores = ["test score 1", "test score 2"]
     invoke_mock = Mock()
     invoke_mock.side_effect = [Mock(content=test_score) for test_score in test_scores]
-    mock_get_llm.return_value = Mock(invoke=invoke_mock)
+    mock_inspect_ai_eval.return_value = [
+        Mock(
+            samples=[
+                Mock(output=Mock(choices=[Mock(message=Mock(content=test_scores[0]))])),
+                Mock(output=Mock(choices=[Mock(message=Mock(content=test_scores[1]))])),
+            ]
+        ),
+    ]
 
     """Test the API main module."""
     with TestClient(app) as client:
@@ -60,16 +70,14 @@ def test_evaluate_from_file_success(mock_get_llm: Mock) -> None:
             assert json_response[i]["result"] == test_scores[i]
             assert json_response[i]["prompt"] == expected_prompts[i]
 
-        assert mock_get_llm.call_count == 2
-        assert invoke_mock.call_count == 2
-        mock_get_llm.assert_has_calls(
-            [
-                call(test_openai_api_key),
-                call().invoke(expected_prompts[0]),
-                call(test_openai_api_key),
-                call().invoke(expected_prompts[1]),
-            ]
-        )
+        mock_inspect_ai_eval.assert_called_once_with(ANY, model=INFERENCE_MODEL, log_dir=ANY)
+
+        inspect_call_args = mock_inspect_ai_eval.call_args_list[0][0][0]
+        assert expected_prompts == [s.input for s in inspect_call_args.dataset.samples]
+        assert len(inspect_call_args.solver) == 1
+        assert inspect_call_args.solver[0].__qualname__ == generate().__qualname__
+        assert len(inspect_call_args.scorer) == 1
+        assert inspect_call_args.scorer[0].__qualname__ == model_graded_qa().__qualname__
 
 
 @pytest.mark.integration_test
@@ -121,3 +129,55 @@ def test_evaluate_from_file_failure_missing_fields() -> None:
                 "The file must contain" in response.json()["detail"]
                 or "Systematized concepts must contain" in response.json()["detail"]
             )
+
+
+@pytest.mark.integration_test
+@patch("aspis.inferencer.inspect_ai_eval")
+def test_evaluate_from_file_failure_assertions(mock_inspect_ai_eval: Mock) -> None:
+    return_values_and_error_messages = [
+        ([], "Expected exactly one result"),
+        (["a", "b"], "Expected exactly one result"),
+        ([Mock(samples=None)], "Expected samples to be not None"),
+        ([Mock(samples=[])], "Expected number of samples to be the same as the number of samples in the task"),
+        ([Mock(samples=["a", "b"])], "Expected number of samples to be the same as the number of samples in the task"),
+        (
+            [Mock(samples=[Mock(output=Mock(choices=[Mock(message=Mock(content=123))]))])],
+            "Expected message content to be a string",
+        ),
+    ]
+
+    for return_value, error_message in return_values_and_error_messages:
+        mock_inspect_ai_eval.return_value = return_value
+
+        """Test the API main module."""
+        with TestClient(app) as client:
+            file_content = yaml.safe_dump(
+                {
+                    "systematized_concepts": [
+                        {
+                            "title": "Test concept 1",
+                            "prompt_template": "Test template 1 <text_to_evaluate/> text",
+                        },
+                    ]
+                }
+            ).encode("utf-8")
+
+            response = client.post(
+                "/evaluate_from_file",
+                data={
+                    "text_to_evaluate": "Test text",
+                    "openai_api_key": "test api key",
+                },
+                files={
+                    "systematized_concepts_file": (
+                        "systematized_concepts.yaml",
+                        BytesIO(file_content),
+                        "application/yaml",
+                    )
+                },
+            )
+
+            assert response.status_code == 422
+            assert response.json()["detail"] == error_message
+
+        mock_inspect_ai_eval.reset_mock()
