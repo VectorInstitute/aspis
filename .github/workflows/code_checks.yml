@@ -60,4 +60,4 @@ jobs:
           # GHSA-cfh3-3jmp-rvhc: issue with langgraph 1.0.9 that has no fix version yet
           ignore-vulns: |
             GHSA-cfh3-3jmp-rvhc
-            GHSA-g48c-2wqr-h844 
+            GHSA-g48c-2wqr-h844
