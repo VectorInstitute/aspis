@@ -57,5 +57,7 @@ jobs:
           virtual-environment: .venv/
           # GHSA-cfh3-3jmp-rvhc: This is a vulnerability in pillow that cannot be upgraded because
           # streamlit has an issue: https://github.com/streamlit/streamlit/issues/12566
+          # GHSA-cfh3-3jmp-rvhc: issue with langgraph 1.0.9 that has no fix version yet
           ignore-vulns: |
             GHSA-cfh3-3jmp-rvhc
+            GHSA-g48c-2wqr-h844
