@@ -29,58 +29,41 @@ It is based on the methodology described in the paper
 ["Evaluating Generative AI Systems is a Social Science Measurement Challenge"](https://arxiv.org/abs/2411.10939).
 
 
-## 👩‍💻 Running From Source
+## 🐳 Running using Docker
 
-### 🔧 Installing the Dependencies
-
-The development environment can be set up using
-[uv](https://github.com/astral-sh/uv?tab=readme-ov-file#installation). Ensure it is
-installed and then run:
+To run both the UI and API services using [Docker](https://docs.docker.com/engine/install/),
+make sure you have Docker installed then build the image with the command below:
 
 ```bash
-uv sync
-source .venv/bin/activate
+docker build --no-cache -t aspis:latest .
 ```
 
-In order to install dependencies for testing (codestyle, unit tests, integration tests),
-run:
+Once the image is built, run it with the command below:
 
 ```bash
-uv sync --dev
-source .venv/bin/activate
+docker run --rm -p 8080:8080 aspis:latest
 ```
 
-### 🖥 Running the UI
+## 👩‍💻 Running from source
 
-Aspis UI runs in a [Streamlit](https://streamlit.io/) container. To execute it, use
-the command below:
+Please refer to the [CONTRIBUTING.md](CONTRIBUTING.md) file.
 
-```bash
-streamlit run src/aspis/ui/main.py
-```
+## 🖥 Using the UI
 
-The app will be available at `http://localhost:8501`.
+Once the application is started using Docker, the UI will be available under `http://localhost:8080/`.
 
-It will ask you for your AI product description and the risk you want to measure in
+Upon access, it will ask you for your AI product description and the risk you want to measure in
 order to produce LLM prompts that can be used to evaluate the product's outputs against
 the risk (i.e. measurement instruments).
 
 After filling up all the fields, the app will offer the option to download the results as a
 `.yaml` file so you can load the results later or use them in the API (described below).
 
+### 🔌 Using the API
 
-### 🔌 Running the API
+The API will be available under `http://localhost:8080/api`..
 
-Aspis also has an API that can run endpoints for evaluations. To start the API server,
-use the command below:
-
-```bash
-fastapi dev src/aspis/api/main.py
-```
-
-The API will be available at port `8080`.
-
-The main endpoint is `http://localhost:8000/evaluate_from_file`. It is a `POST` REST API
+The main endpoint is `http://localhost:8080/evaluate_from_file`. It is a `POST` REST API
 endpoint that takes a form data with the following fields:
 - An string input text `text_to_evaluate`
 - An `openai_api_key` to access the models
@@ -88,4 +71,4 @@ endpoint that takes a form data with the following fields:
 all the questions from the main app.
 
 To see the full documentation for the available endpoints, you can access
-`http://localhost:8000/docs` on your browser.
+`http://localhost:8080/api/docs` on your browser.
