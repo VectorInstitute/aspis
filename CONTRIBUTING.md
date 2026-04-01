@@ -77,7 +77,7 @@ use the command below:
 fastapi dev src/aspis/api/main.py
 ```
 
-The API will be available at port `8080`.
+The API will be available at port `8000`.
 
 The main endpoint is `http://localhost:8000/evaluate_from_file`. It is a `POST` REST API
 endpoint that takes a form data with the following fields:
