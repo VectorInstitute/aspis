@@ -29,9 +29,9 @@ It is based on the methodology described in the paper
 ["Evaluating Generative AI Systems is a Social Science Measurement Challenge"](https://arxiv.org/abs/2411.10939).
 
 
-## 🤗 Accessing Aspis on Huggingface
+## 🤗 Accessing Aspis on Hugging Face
 
-Aspis is hosted on Huggingface Spaces under the URL below:
+Aspis is hosted on Hugging Face Spaces under the URL below:
 
 https://huggingface.co/spaces/mlotif/aspis
 
