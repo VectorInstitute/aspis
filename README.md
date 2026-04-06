@@ -29,6 +29,26 @@ It is based on the methodology described in the paper
 ["Evaluating Generative AI Systems is a Social Science Measurement Challenge"](https://arxiv.org/abs/2411.10939).
 
 
+## 🤗 Accessing Aspis on Huggingface
+
+Aspis is hosted on Huggingface Spaces under the URL below:
+
+https://huggingface.co/spaces/mlotif/aspis
+
+
+The API is also available under the following URL:
+
+https://mlotif-aspis.hf.space/api
+
+To see the documentation on the endpoints, please visit:
+
+https://mlotif-aspis.hf.space/api/docs
+
+
+For more details on how to use the API, please see the
+[Using the API](#-using-the-api) section.
+
+
 ## 🐳 Running using Docker
 
 To run both the UI and API services using [Docker](https://docs.docker.com/engine/install/),
