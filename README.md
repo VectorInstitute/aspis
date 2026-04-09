@@ -33,17 +33,12 @@ It is based on the methodology described in the paper
 
 Aspis is hosted on Hugging Face Spaces under the URL below:
 
-https://huggingface.co/spaces/mlotif/aspis
+https://huggingface.co/spaces/vector-institute/aspis
 
+The API is also available under Hugging Face Spaces. To see the full documentation
+on the available endpoints, please visit:
 
-The API is also available under the following URL:
-
-https://mlotif-aspis.hf.space/api
-
-To see the documentation on the endpoints, please visit:
-
-https://mlotif-aspis.hf.space/api/docs
-
+https://vector-institute-aspis.hf.space/api/docs
 
 For more details on how to use the API, please see the
 [Using the API](#-using-the-api) section.
