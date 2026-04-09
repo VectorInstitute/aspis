@@ -26,7 +26,8 @@ against specific risk criteria
 Aspis uses a systematization methodology to break down abstract AI risks into
 concrete, evaluable concepts, enabling systematic risk assessment of AI systems.
 It is based on the methodology described in the paper
-["Evaluating Generative AI Systems is a Social Science Measurement Challenge"](https://arxiv.org/abs/2411.10939).
+["Evaluating Generative AI Systems is a Social Science Measurement Challenge"](https://arxiv.org/abs/2411.10939),
+by Wallach et al.
 
 
 ## 🤗 Accessing Aspis on Hugging Face
@@ -78,7 +79,7 @@ After filling up all the fields, the app will offer the option to download the r
 
 The API will be available under `http://localhost:8080/api`..
 
-The main endpoint is `http://localhost:8080/evaluate_from_file`. It is a `POST` REST API
+The main endpoint is `http://localhost:8080/api/evaluate_from_file`. It is a `POST` REST API
 endpoint that takes a form data with the following fields:
 - An string input text `text_to_evaluate`
 - An `openai_api_key` to access the models
