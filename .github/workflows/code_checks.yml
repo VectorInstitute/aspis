@@ -55,10 +55,12 @@ jobs:
         uses: pypa/gh-action-pip-audit@1220774d901786e6f652ae159f7b6bc8fea6d266
         with:
           virtual-environment: .venv/
-          # GHSA-cfh3-3jmp-rvhc, GHSA-7p48-42j8-8846: These are vulnerabilities in pillow and streamlit that cannot
-          # be upgraded because streamlit has an issue: https://github.com/streamlit/streamlit/issues/12566
+          # GHSA-cfh3-3jmp-rvhc, GHSA-7p48-42j8-8846, GHSA-whj4-6x5x-4v2j: These are vulnerabilities in
+          # pillow and streamlit that cannot be upgraded because streamlit has an issue:
+          # https://github.com/streamlit/streamlit/issues/12566
           # GHSA-5239-wwwm-4pmq: issue with pygments 2.19.12 that can't be upgraded because it breaks the docs build
           ignore-vulns: |
             GHSA-cfh3-3jmp-rvhc
             GHSA-7p48-42j8-8846
+            GHSA-whj4-6x5x-4v2j
             GHSA-5239-wwwm-4pmq
