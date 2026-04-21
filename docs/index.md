@@ -1,4 +1,4 @@
-# Vector AI Engineering template (uv edition) repository
+# AI Engineering template (uv edition) repository
 
 This template repository can be used to bootstrap AI Engineering project repositories
 on Github! The template is meant for python codebases since Python is the most commonly
@@ -46,7 +46,7 @@ app as an [integration to your repository](https://docs.codecov.com/docs/how-to-
 
 
 If you are starting a new project, you can navigate to the [Use this template](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template) button
-on the top right corner of the [template repository home page](https://github.com/VectorInstitute/aieng-template)
+on the top right corner of the template repository home page.
 which will allow you to bootstrap your project repo using this template.
 
 Please check out the user guide page for more detailed information on using the

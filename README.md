@@ -2,12 +2,6 @@
 
 ----------------------------------------------------------------------------------------
 
-[![code checks](https://github.com/VectorInstitute/aspis/actions/workflows/code_checks.yml/badge.svg)](https://github.com/VectorInstitute/aspis/actions/workflows/code_checks.yml)
-[![integration tests](https://github.com/VectorInstitute/aspis/actions/workflows/integration_tests.yml/badge.svg)](https://github.com/VectorInstitute/aspis/actions/workflows/integration_tests.yml)
-[![docs](https://github.com/VectorInstitute/aspis/actions/workflows/docs.yml/badge.svg)](https://github.com/VectorInstitute/aspis/actions/workflows/docs.yml)
-[![codecov](https://codecov.io/gh/VectorInstitute/aspis/graph/badge.svg?token=nKpBEtl2Ah)](https://codecov.io/github/VectorInstitute/aspis)
-![GitHub License](https://img.shields.io/github/license/VectorInstitute/aspis)
-
 Aspis is a tool for creating measurement instruments for AI risks. It helps you
 systematically analyze and evaluate AI-powered products by converting high-level risk
 descriptions into specific, measurable concepts that can be operationalized using
@@ -34,12 +28,12 @@ by Wallach et al.
 
 Aspis is hosted on Hugging Face Spaces under the URL below:
 
-https://huggingface.co/spaces/vector-institute/aspis
+https://huggingface.co/spaces/aspis-demo/aspis
 
 The API is also available under Hugging Face Spaces. To see the full documentation
 on the available endpoints, please visit:
 
-https://vector-institute-aspis.hf.space/api/docs
+https://aspis-demo-aspis.hf.space/api/docs
 
 For more details on how to use the API, please see the
 [Using the API](#-using-the-api) section.

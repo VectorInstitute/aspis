@@ -128,19 +128,19 @@ can add to your repository.
 
 The available workflows are:
 
-- [code checks](https://github.com/VectorInstitute/aieng-template/blob/main/.github/workflows/code_checks.yml): Static code analysis, code formatting and unit tests
-- [documentation](https://github.com/VectorInstitute/aieng-template/blob/main/.github/workflows/docs.yml): Project documentation including example API reference
-- [integration tests](https://github.com/VectorInstitute/aieng-template/blob/main/.github/workflows/integration_tests.yml): Integration tests
-- [publish](https://github.com/VectorInstitute/aieng-template/blob/main/.github/workflows/publish.yml):
+- [code checks](https://github.com/aspis-demo/aieng-template/blob/main/.github/workflows/code_checks.yml): Static code analysis, code formatting and unit tests
+- [documentation](https://github.com/aspis-demo/aieng-template/blob/main/.github/workflows/docs.yml): Project documentation including example API reference
+- [integration tests](https://github.com/aspis-demo/aieng-template/blob/main/.github/workflows/integration_tests.yml): Integration tests
+- [publish](https://github.com/aspis-demo/aieng-template/blob/main/.github/workflows/publish.yml):
 Publishing python package to PyPI. Create a `PYPI_API_TOKEN` and add it to the
 repository's actions [secret variables](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions)
 in order to publish PyPI packages when new software releases are created on Github.
 
 The test workflows also compute coverage and upload code coverage metrics to
-[codecov.io](https://app.codecov.io/gh/VectorInstitute/aieng-template). Create a
+[codecov.io](https://app.codecov.io/gh/aspis-demo/aieng-template). Create a
 `CODECOV_TOKEN` and add it to the repository's actions [secret variables](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions).
 
 !!! warning "codecov"
-    The [codecov](https://app.codecov.io/github/VectorInstitute) tool is subscribed under the free tier
+    The [codecov](https://app.codecov.io/github/aspis-demo) tool is subscribed under the free tier
     which makes it usable only for public open-source repos. Hence, if you would like to develop in a
     private repo, it is recommended to remove the codecov actions from the github workflow files.

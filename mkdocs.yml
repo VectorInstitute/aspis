@@ -6,7 +6,7 @@ extra:
     - icon: fontawesome/brands/discord
       link: 404.html
     - icon: fontawesome/brands/github
-      link: https://github.com/VectorInstitute/aspis
+      link: https://github.com/aspis-demo/aspis
 markdown_extensions:
   - attr_list
   - admonition
@@ -44,8 +44,8 @@ plugins:
             show_root_toc_entry: false
             show_symbol_type_heading: true
             show_symbol_type_toc: true
-repo_url: https://github.com/VectorInstitute/aspis
-repo_name: VectorInstitute/aspis
+repo_url: https://github.com/aspis-demo/aspis
+repo_name: aspis-demo/aspis
 site_name: Aspis
 theme:
   custom_dir: docs/overrides
@@ -63,21 +63,21 @@ theme:
     - toc.follow
   icon:
     repo: fontawesome/brands/github
-  logo: assets/vector-logo.svg
-  logo_footer: assets/vector-logo.svg
+  logo: assets/aspis-logo.svg
+  logo_footer: assets/aspis-logo.svg
   name: material
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: vector
-      accent: vector-teal
+      primary: aspis
+      accent: aspis-teal
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
       primary: black
-      accent: vector-teal
+      accent: aspis-teal
       toggle:
         icon: material/brightness-4
         name: Switch to light mode

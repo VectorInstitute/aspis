@@ -1,4 +1,4 @@
-[data-md-color-primary="vector"] {
+[data-md-color-primary="aspis"] {
   --md-primary-fg-color: #eb088a;
   --md-primary-fg-color--light: #f252a5;
   --md-primary-fg-color--dark: #b00068;
@@ -13,7 +13,7 @@
   --md-primary-bg-color: #eb088a;
 }
 
-[data-md-color-accent="vector-teal"] {
+[data-md-color-accent="aspis-teal"] {
   --md-accent-fg-color: #48c0d9;
   --md-accent-fg-color--transparent: #526cfe1a;
   --md-accent-bg-color: #fff;
@@ -33,21 +33,21 @@
   /* Dark mode styling */
 }
 
-/* Vector logo css styling to match overrides/partial/copyright.html */
-.md-footer-vector {
+/* Aspis logo css styling to match overrides/partial/copyright.html */
+.md-footer-aspis {
   display: flex;
   align-items: center;
   padding: 0 0.6rem;
 }
 
-.md-footer-vector img {
+.md-footer-aspis img {
   height: 24px; /* Reduce height to a fixed value */
   width: auto; /* Maintain aspect ratio */
   transition: opacity 0.25s;
   opacity: 0.7;
 }
 
-.md-footer-vector img:hover {
+.md-footer-aspis img:hover {
   opacity: 1;
 }
 
@@ -58,7 +58,7 @@
   align-items: center;
 }
 
-/* To make socials and Vector logo not stack when viewing on mobile */
+/* To make socials and Aspis logo not stack when viewing on mobile */
 @media screen and (max-width: 76.234375em) {
   .md-footer-meta__inner.md-grid {
     flex-direction: row;
@@ -84,7 +84,7 @@
   margin-bottom: 0.5rem; /* Smaller bottom margin in cards */
 }
 
-.vector-icon {
+.aspis-icon {
   color: #eb088a;
   opacity: 0.7;
   margin-right: 0.2em;

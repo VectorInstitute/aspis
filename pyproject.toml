@@ -3,7 +3,7 @@ name = "aspis"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-authors = [ {name = "Vector AI Engineering", email = "ai_engineering@vectorinstitute.ai"}]
+authors = [ {name = "Aspis", email = "ai_engineering@aspis.demo"}]
 license = "Apache-2.0"
 requires-python = ">=3.12"
 dependencies = [
@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.urls]
-repository = "https://github.com/VectorInstitute/aspis"
+    repository = "https://github.com/aspis-demo/aspis"
 
 [build-system]
 requires = ["hatchling"]
