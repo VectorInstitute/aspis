@@ -1,21 +1,14 @@
 """Functions and classes to ask the systematization question."""
 
 import json
-import logging
 from dataclasses import dataclass
 from pathlib import Path
 
 from langchain_core.prompts import ChatPromptTemplate
 
+from aspis.logging import get_logger
 from aspis.model import get_llm
 
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
-logger = logging.getLogger(__name__)
 
 SYSTEMATIZATION_PAPER_PATH = Path(__file__).parent / "data" / "systematization_paper.txt"
 
@@ -102,6 +95,9 @@ def get_systematization_questions(
         The follow up systematization questions. Will be None if the model fails to
             return a valid JSON.
     """
+    logger = get_logger()
+    logger.info("Querying model for systematization questions")
+
     llm = get_llm(openai_api_key)
     response = llm.invoke(
         SYSTEMATIZATION_PROMPT.format(
@@ -112,7 +108,8 @@ def get_systematization_questions(
     )
     raw_response = response.content
 
-    logger.info(f"Model's raw response: {raw_response}")
+    logger.info("Received response from model")
+    logger.debug(f"Model's raw response: {raw_response}")
 
     assert isinstance(raw_response, str)
     cleaned_response = clean_model_output(raw_response)
@@ -164,6 +161,9 @@ def get_systematized_concepts(
     # Format questions and answers for the prompt
     questions_and_answers = format_questions_and_answers(questions, answers)
 
+    logger = get_logger()
+    logger.info("Querying model for systematized concepts")
+
     llm = get_llm(openai_api_key)
     response = llm.invoke(
         SYSTEMATIZED_CONCEPTS_PROMPT.format(
@@ -175,7 +175,8 @@ def get_systematized_concepts(
     )
     raw_response = response.content
 
-    logger.info(f"Model's raw response: {raw_response}")
+    logger.info("Received response from model")
+    logger.debug(f"Model's raw response: {raw_response}")
 
     assert isinstance(raw_response, str)
     cleaned_response = clean_model_output(raw_response)

@@ -55,7 +55,7 @@ Aspis UI runs in a [Streamlit](https://streamlit.io/) container. To execute it, 
 the command below:
 
 ```bash
-streamlit run src/aspis/ui/main.py
+LOG_LEVEL=DEBUG streamlit run src/aspis/ui/main.py
 ```
 
 The app will be available at `http://localhost:8501`.
@@ -74,7 +74,7 @@ Aspis also has an API that can run endpoints for evaluations. To start the API s
 use the command below:
 
 ```bash
-fastapi dev src/aspis/api/main.py
+LOG_LEVEL=DEBUG fastapi dev src/aspis/api/main.py
 ```
 
 The API will be available at port `8000`.
