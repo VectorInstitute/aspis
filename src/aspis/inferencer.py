@@ -12,6 +12,8 @@ from inspect_ai.log import EvalLog
 from inspect_ai.scorer import model_graded_qa
 from inspect_ai.solver import generate
 
+from aspis.logging import get_logger
+
 
 INFERENCE_MODEL = "openai/gpt-4o"
 
@@ -45,6 +47,13 @@ async def infer(input_text: str, prompt_templates: list[str], api_key: str) -> l
         )
 
     assert len(result) == 1, "Expected exactly one result"
+
+    if result[0].status != "success":
+        logger = get_logger()
+        logger.error("Evaluation error: %s", result[0].error)
+        logger.debug("Full evaluation result: %s", result[0])
+        raise ValueError("Error during evaluation.")
+
     assert result[0].samples is not None, "Expected samples to be not None"
     assert len(result[0].samples) == len(samples), (
         "Expected number of samples to be the same as the number of samples in the task"

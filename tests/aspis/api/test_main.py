@@ -21,10 +21,11 @@ def test_evaluate_from_file_success(mock_inspect_ai_eval: Mock) -> None:
     invoke_mock.side_effect = [Mock(content=test_score) for test_score in test_scores]
     mock_inspect_ai_eval.return_value = [
         Mock(
+            status="success",
             samples=[
                 Mock(output=Mock(choices=[Mock(message=Mock(content=test_scores[0]))])),
                 Mock(output=Mock(choices=[Mock(message=Mock(content=test_scores[1]))])),
-            ]
+            ],
         ),
     ]
 
@@ -78,6 +79,37 @@ def test_evaluate_from_file_success(mock_inspect_ai_eval: Mock) -> None:
         assert inspect_call_args.solver[0].__qualname__ == generate().__qualname__
         assert len(inspect_call_args.scorer) == 1
         assert inspect_call_args.scorer[0].__qualname__ == model_graded_qa().__qualname__
+
+
+@pytest.mark.integration_test
+@patch("aspis.inferencer.inspect_ai_eval")
+def test_evaluate_from_file_failure_evaluation_error(mock_inspect_ai_eval: Mock) -> None:
+    mock_inspect_ai_eval.return_value = [Mock(status="error", error="Test error")]
+
+    with TestClient(app) as client:
+        test_systematized_concepts = [
+            {"title": "Test concept 1", "prompt_template": "Test template 1 <text_to_evaluate/> text"}
+        ]
+
+        file_content = yaml.safe_dump({"systematized_concepts": test_systematized_concepts}).encode("utf-8")
+        response = client.post(
+            "/evaluate_from_file",
+            data={
+                "text_to_evaluate": "Test text",
+                "openai_api_key": "test api key",
+            },
+            files={
+                "systematized_concepts_file": (
+                    "systematized_concepts.yaml",
+                    BytesIO(file_content),
+                    "application/yaml",
+                )
+            },
+        )
+        assert response.status_code == 500
+        json_response = response.json()
+
+        assert json_response == {"detail": "Evaluation failed: Error during evaluation."}
 
 
 @pytest.mark.integration_test
@@ -137,11 +169,17 @@ def test_evaluate_from_file_failure_assertions(mock_inspect_ai_eval: Mock) -> No
     return_values_and_error_messages = [
         ([], "Expected exactly one result"),
         (["a", "b"], "Expected exactly one result"),
-        ([Mock(samples=None)], "Expected samples to be not None"),
-        ([Mock(samples=[])], "Expected number of samples to be the same as the number of samples in the task"),
-        ([Mock(samples=["a", "b"])], "Expected number of samples to be the same as the number of samples in the task"),
+        ([Mock(status="success", samples=None)], "Expected samples to be not None"),
         (
-            [Mock(samples=[Mock(output=Mock(choices=[Mock(message=Mock(content=123))]))])],
+            [Mock(status="success", samples=[])],
+            "Expected number of samples to be the same as the number of samples in the task",
+        ),
+        (
+            [Mock(status="success", samples=["a", "b"])],
+            "Expected number of samples to be the same as the number of samples in the task",
+        ),
+        (
+            [Mock(status="success", samples=[Mock(output=Mock(choices=[Mock(message=Mock(content=123))]))])],
             "Expected message content to be a string",
         ),
     ]

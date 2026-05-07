@@ -6,11 +6,15 @@ from pathlib import Path
 import streamlit as st
 import yaml
 
+from aspis.logging import setup_logging
 from aspis.systematization import (
     SystematizedConcept,
     get_systematization_questions,
     get_systematized_concepts,
 )
+
+
+setup_logging("ui")
 
 
 def main() -> None:

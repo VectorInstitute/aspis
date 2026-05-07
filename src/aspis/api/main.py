@@ -1,17 +1,17 @@
 """Functions for the programmatic API of the Aspis application."""
 
 import datetime
-import logging
 
 import yaml
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from aspis.inferencer import get_inference_prompt, infer
+from aspis.logging import get_logger, setup_logging
 
 
 app = FastAPI(title="Aspis API")
-logger = logging.getLogger("uvicorn.access")
+setup_logging("api")
 
 
 class EvaluationResponse(BaseModel):
@@ -58,6 +58,7 @@ async def evaluate(
         A list of evaluations for the input text, one for each systematized concept
             in the file.
     """
+    logger = get_logger()
     try:
         file_content = await systematized_concepts_file.read()
         file_text = file_content.decode("utf-8")
@@ -78,7 +79,8 @@ async def evaluate(
             )
             prompt_templates.append(systematized_concept["prompt_template"])
 
-        logger.info(f"{datetime.datetime.now()}: Evaluating input text against all concepts...")
+        logger.info("%s: Evaluating input text against all concepts...", datetime.datetime.now())
+
         results = await infer(text_to_evaluate, prompt_templates, openai_api_key)
 
         evaluation_responses = []
