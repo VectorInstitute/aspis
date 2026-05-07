@@ -1,9 +1,11 @@
 """Scorer for applications using Aspis as anLLM-as-a-judge."""
 
 import asyncio
+import json
 import os
 from concurrent.futures import ThreadPoolExecutor
 from tempfile import TemporaryDirectory
+from typing import Any
 
 from inspect_ai import Task
 from inspect_ai import eval as inspect_ai_eval
@@ -13,12 +15,13 @@ from inspect_ai.scorer import model_graded_qa
 from inspect_ai.solver import generate
 
 from aspis.logging import get_logger
+from aspis.systematization import clean_model_output
 
 
 INFERENCE_MODEL = "openai/gpt-4o"
 
 
-async def infer(input_text: str, prompt_templates: list[str], api_key: str) -> list[str]:
+async def infer(input_text: str, prompt_templates: list[str], api_key: str) -> list[dict[str, Any]]:
     """Infer the input text against the model using the prompt.
 
     Will use `get_inference_prompt` function to replace placeholders in the prompt
@@ -30,8 +33,10 @@ async def infer(input_text: str, prompt_templates: list[str], api_key: str) -> l
         api_key: The API key to use to infer the input text.
 
     Returns:
-        The inferred output from the model.
+        The inferred output from the model, parsed from a json to a dictionary.
     """
+    logger = get_logger()
+
     samples = []
     for prompt_template in prompt_templates:
         input_prompt = get_inference_prompt(input_text, prompt_template)
@@ -49,7 +54,6 @@ async def infer(input_text: str, prompt_templates: list[str], api_key: str) -> l
     assert len(result) == 1, "Expected exactly one result"
 
     if result[0].status != "success":
-        logger = get_logger()
         logger.error("Evaluation error: %s", result[0].error)
         logger.debug("Full evaluation result: %s", result[0])
         raise ValueError("Error during evaluation.")
@@ -63,7 +67,16 @@ async def infer(input_text: str, prompt_templates: list[str], api_key: str) -> l
     for sample in result[0].samples:
         message_content = sample.output.choices[0].message.content
         assert isinstance(message_content, str), "Expected message content to be a string"
-        model_outputs.append(message_content)
+        cleaned_message_content = clean_model_output(message_content)
+
+        try:
+            parsed_message_content = json.loads(cleaned_message_content)
+        except Exception:
+            logger.exception("Error parsing the model output as json. Writing the raw output to the return.")
+            logger.debug("Cleaned message content: %s", cleaned_message_content)
+            parsed_message_content = cleaned_message_content
+
+        model_outputs.append(parsed_message_content)
 
     return model_outputs
 

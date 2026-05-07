@@ -1,5 +1,6 @@
 """Test for the API main module."""
 
+import json
 from io import BytesIO
 from unittest.mock import ANY, Mock, patch
 
@@ -11,12 +12,13 @@ from inspect_ai.solver import generate
 
 from aspis.api.main import app
 from aspis.inferencer import INFERENCE_MODEL
+from aspis.systematization import clean_model_output
 
 
 @pytest.mark.integration_test
 @patch("aspis.inferencer.inspect_ai_eval")
 def test_evaluate_from_file_success(mock_inspect_ai_eval: Mock) -> None:
-    test_scores = ["test score 1", "test score 2"]
+    test_scores = ['{"score": "test score 1"}', '```json{"score": "test score 2"}```', "not a valid json test score"]
     invoke_mock = Mock()
     invoke_mock.side_effect = [Mock(content=test_score) for test_score in test_scores]
     mock_inspect_ai_eval.return_value = [
@@ -29,7 +31,6 @@ def test_evaluate_from_file_success(mock_inspect_ai_eval: Mock) -> None:
         ),
     ]
 
-    """Test the API main module."""
     with TestClient(app) as client:
         test_text_to_evaluate = "Test text"
         test_openai_api_key = "test api key"
@@ -67,8 +68,12 @@ def test_evaluate_from_file_success(mock_inspect_ai_eval: Mock) -> None:
         assert response.status_code == 200
         json_response = response.json()
         for i in range(len(json_response)):
+            # Parsing all the scores but the last one, which is not a valid json.
+            expected_result = (
+                json.loads(clean_model_output(test_scores[i])) if i != len(test_scores) - 1 else test_scores[i]
+            )
             assert json_response[i]["systematized_concept_title"] == test_systematized_concepts[i]["title"]
-            assert json_response[i]["result"] == test_scores[i]
+            assert json_response[i]["result"] == expected_result
             assert json_response[i]["prompt"] == expected_prompts[i]
 
         mock_inspect_ai_eval.assert_called_once_with(ANY, model=INFERENCE_MODEL, log_dir=ANY)

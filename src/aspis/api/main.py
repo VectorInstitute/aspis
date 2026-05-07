@@ -1,6 +1,7 @@
 """Functions for the programmatic API of the Aspis application."""
 
 import datetime
+from typing import Any
 
 import yaml
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -26,7 +27,7 @@ class EvaluationResponse(BaseModel):
     """
 
     systematized_concept_title: str
-    result: str
+    result: dict[str, Any]
     prompt: str
 
 
