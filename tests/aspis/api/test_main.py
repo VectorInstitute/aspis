@@ -16,18 +16,6 @@ from aspis.inferencer import INFERENCE_MODEL
 @pytest.mark.integration_test
 @patch("aspis.inferencer.inspect_ai_eval")
 def test_evaluate_from_file_success(mock_inspect_ai_eval: Mock) -> None:
-    """
-    Validate that POST /evaluate_from_file returns expected prompts, results, and inspector configuration when evaluation succeeds.
-    
-    Sends a YAML file of systematized concepts and form fields to the endpoint with a mocked `inspect_ai_eval` that returns successful evaluation samples. Asserts:
-    - HTTP 200 and response items contain the original concept title, the formatted prompt (with `<text_to_evaluate/>` replaced), and the corresponding score extracted from the evaluation output,
-    - `inspect_ai_eval` is called once with the expected model and log_dir,
-    - the generated inspect dataset contains the expected input prompts,
-    - the solver and scorer configuration passed to the inspector match the expected `generate` and `model_graded_qa` callables.
-    
-    Parameters:
-        mock_inspect_ai_eval (Mock): pytest fixture that patches `aspis.inferencer.inspect_ai_eval` and controls its return value for the test.
-    """
     test_scores = ["test score 1", "test score 2"]
     invoke_mock = Mock()
     invoke_mock.side_effect = [Mock(content=test_score) for test_score in test_scores]
@@ -96,14 +84,6 @@ def test_evaluate_from_file_success(mock_inspect_ai_eval: Mock) -> None:
 @pytest.mark.integration_test
 @patch("aspis.inferencer.inspect_ai_eval")
 def test_evaluate_from_file_failure_evaluation_error(mock_inspect_ai_eval: Mock) -> None:
-    """
-    Verifies that the /evaluate_from_file endpoint responds with HTTP 500 and the expected error detail when the inferencer reports an evaluation error.
-    
-    Mocks `inspect_ai_eval` to return an error result, uploads a valid systematized concepts YAML file, sends a POST request to the endpoint, and asserts the response status code is 500 and the JSON body equals {"detail": "Evaluation failed: Error during evaluation."}.
-    
-    Parameters:
-        mock_inspect_ai_eval (Mock): Pytest fixture mocking `aspis.inferencer.inspect_ai_eval`, configured to simulate an evaluation error.
-    """
     mock_inspect_ai_eval.return_value = [Mock(status="error", error="Test error")]
 
     with TestClient(app) as client:
@@ -186,11 +166,6 @@ def test_evaluate_from_file_failure_missing_fields() -> None:
 @pytest.mark.integration_test
 @patch("aspis.inferencer.inspect_ai_eval")
 def test_evaluate_from_file_failure_assertions(mock_inspect_ai_eval: Mock) -> None:
-    """
-    Parametrically verifies that the /evaluate_from_file endpoint responds with HTTP 422 and the expected error detail when inspect_ai_eval returns various malformed or invalid result shapes.
-    
-    This test patches inspect_ai_eval to return several different failure or malformed payloads (no results, multiple results, success with None samples, empty samples, mismatched sample counts, and non-string message content) and asserts the endpoint produces the corresponding validation error message for each case.
-    """
     return_values_and_error_messages = [
         ([], "Expected exactly one result"),
         (["a", "b"], "Expected exactly one result"),

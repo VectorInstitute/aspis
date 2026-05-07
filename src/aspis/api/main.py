@@ -36,24 +36,27 @@ async def evaluate(
     openai_api_key: str = Form(...),
     systematized_concepts_file: UploadFile = File(...),  # noqa: B008 mypy's false positive on File(...)
 ) -> list[EvaluationResponse]:
-    """
-    Evaluate input text against systematized concept prompt templates provided in a YAML file.
-    
-    Parameters:
-        text_to_evaluate (str): The text to evaluate.
-        openai_api_key (str): OpenAI API key used for inference.
-        systematized_concepts_file (UploadFile): A YAML file containing a top-level `systematized_concepts` key with a list of concepts. Each concept must include `title` and `prompt_template` keys, for example:
-            systematized_concepts:
-            - title: "Concept 1"
-              prompt_template: "Prompt template 1"
-            - title: "Concept 2"
-              prompt_template: "Prompt template 2"
-    
+    """Evaluate an input text using systematized concepts from a file.
+
+    Returns one evaluation per systematized concept.
+
+    Args:
+        text_to_evaluate: The text to evaluate.
+        openai_api_key: The OpenAI API key to use the LLM.
+        systematized_concepts_file: The file containing the systematized concepts.
+            It must be a `.yaml` file that contains a `systematized_concepts` key
+            with a list of systematized concepts. Each systematized concept must
+            contain a `title` key and a `prompt_template` key. Example:
+            \n
+                systematized_concepts:
+                - title: "Systematized concept 1"
+                  prompt_template: "Prompt template 1"
+                - title: "Systematized concept 2"
+                  prompt_template: "Prompt template 2"
+
     Returns:
-        list[EvaluationResponse]: One EvaluationResponse per concept, with `systematized_concept_title`, the inference `result`, and the resolved `prompt`.
-    
-    Raises:
-        HTTPException: Raised with status 422 for invalid/ malformed YAML or missing required keys, or with status 500 for other evaluation failures.
+        A list of evaluations for the input text, one for each systematized concept
+            in the file.
     """
     logger = get_logger()
     try:

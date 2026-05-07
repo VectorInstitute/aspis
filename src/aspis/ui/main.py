@@ -18,16 +18,7 @@ setup_logging("ui")
 
 
 def main() -> None:
-    """
-    Run the Streamlit UI flow for the Aspis application.
-    
-    Sets up the page and styles, reads required values from session state, and drives the multi-step UI:
-    - If API key, product description, or risk description are missing, renders the landing form and the YAML upload control.
-    - If answers have not been provided yet, ensures follow-up questions are generated, stores them in session state, and renders the questions form.
-    - If answers are present, ensures systematized concepts are generated from the product/risk descriptions and submitted answers, stores the concepts in session state, and renders the concept results (including download capability).
-    
-    No return value.
-    """
+    """Entry point for the Aspis application."""
     # Headers
     st.set_page_config(page_title="Aspis", page_icon="🛡️", layout="centered")
     css_path = Path(__file__).parent.parent / "assets" / "styles.css"

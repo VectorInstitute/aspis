@@ -19,21 +19,18 @@ INFERENCE_MODEL = "openai/gpt-4o"
 
 
 async def infer(input_text: str, prompt_templates: list[str], api_key: str) -> list[str]:
-    """
-    Generate model outputs by applying prompt templates to the input text and evaluating them with the configured inference model.
-    
-    Each prompt template must contain the placeholder "<text_to_evaluate/>"; that placeholder will be replaced with "<text>{input_text}</text>" before evaluation. The returned list of strings is aligned with the order of prompt_templates.
-    
-    Parameters:
-        input_text (str): Text to inject into each prompt template.
-        prompt_templates (list[str]): Prompt templates containing the "<text_to_evaluate/>" placeholder.
-        api_key (str): API key used for the evaluation run.
-    
+    """Infer the input text against the model using the prompt.
+
+    Will use `get_inference_prompt` function to replace placeholders in the prompt
+    with the input text.
+
+    Args:
+        input_text: The input text to infer.
+        prompt_templates: The list of prompt templates to use to infer the input text.
+        api_key: The API key to use to infer the input text.
+
     Returns:
-        list[str]: Model output strings corresponding to each prompt template.
-    
-    Raises:
-        ValueError: If the evaluation run reports a non-"success" status.
+        The inferred output from the model.
     """
     samples = []
     for prompt_template in prompt_templates:
