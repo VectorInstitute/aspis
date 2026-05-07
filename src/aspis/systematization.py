@@ -109,18 +109,18 @@ def get_systematization_questions(
     raw_response = response.content
 
     logger.info("Received response from model")
-    logger.debug(f"Model's raw response: {raw_response}")
+    logger.debug("Model's raw response: %s", raw_response)
 
     assert isinstance(raw_response, str)
     cleaned_response = clean_model_output(raw_response)
     try:
         parsed_response = json.loads(cleaned_response)
     except Exception as e:
-        logger.exception(f"Error parsing the response from the model: {e}. Model response: {cleaned_response}")
+        logger.exception("Error parsing the response from the model: %s. Model response: %s", e, cleaned_response)
         return None
 
     if not isinstance(parsed_response, list) or not all(isinstance(q, str) for q in parsed_response):
-        logger.error(f"Response is not a list of strings: '{cleaned_response}'")
+        logger.error("Response is not a list of strings: '%s'", cleaned_response)
         return None
 
     return parsed_response
@@ -176,7 +176,7 @@ def get_systematized_concepts(
     raw_response = response.content
 
     logger.info("Received response from model")
-    logger.debug(f"Model's raw response: {raw_response}")
+    logger.debug("Model's raw response: %s", raw_response)
 
     assert isinstance(raw_response, str)
     cleaned_response = clean_model_output(raw_response)
@@ -184,15 +184,15 @@ def get_systematized_concepts(
     try:
         concepts_data = json.loads(cleaned_response)
     except Exception as e:
-        logger.exception(f"Error parsing the response from the model: {e}. Model response: {raw_response}")
+        logger.exception("Error parsing the response from the model: %s. Model response: %s", e, raw_response)
         return None
 
     if not isinstance(concepts_data, list) or not all(isinstance(concept, dict) for concept in concepts_data):
-        logger.error(f"Response is not a list of dictionaries: '{cleaned_response}'")
+        logger.error("Response is not a list of dictionaries: '%s'", cleaned_response)
         return None
 
     if not all({"title", "body", "prompt_template"} == set(concept.keys()) for concept in concepts_data):
-        logger.error(f"All concepts must have 'title', 'body', and 'prompt_template' keys: '{cleaned_response}'")
+        logger.error("All concepts must have 'title', 'body', and 'prompt_template' keys: '%s'", cleaned_response)
         return None
 
     return [SystematizedConcept(**concept) for concept in concepts_data]

@@ -79,7 +79,7 @@ async def evaluate(
             )
             prompt_templates.append(systematized_concept["prompt_template"])
 
-        logger.info(f"{datetime.datetime.now()}: Evaluating input text against all concepts...")
+        logger.info("%s: Evaluating input text against all concepts...", datetime.datetime.now())
 
         results = await infer(text_to_evaluate, prompt_templates, openai_api_key)
 

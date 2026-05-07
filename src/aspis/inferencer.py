@@ -50,8 +50,8 @@ async def infer(input_text: str, prompt_templates: list[str], api_key: str) -> l
 
     if result[0].status != "success":
         logger = get_logger()
-        logger.error(f"Evaluation error: {result[0].error}")
-        logger.debug(f"Full evaluation result: {result[0]}")
+        logger.error("Evaluation error: %s", result[0].error)
+        logger.debug("Full evaluation result: %s", result[0])
         raise ValueError("Error during evaluation.")
 
     assert result[0].samples is not None, "Expected samples to be not None"
