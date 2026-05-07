@@ -84,16 +84,15 @@ def get_systematization_questions(
     risk_description: str,
     openai_api_key: str,
 ) -> list[str] | None:
-    """Get the systematization questions.
-
-    Args:
-        product_description: The description of the AI-powered product.
-        risk_description: The description of the AI risk the product is exposed to.
-        openai_api_key: The OpenAI API key to use the LLM.
-
+    """
+    Generate follow-up systematization questions to operationalize a product risk.
+    
+    Parameters:
+        product_description (str): Description of the AI-powered product.
+        risk_description (str): Description of the specific risk to operationalize.
+    
     Returns:
-        The follow up systematization questions. Will be None if the model fails to
-            return a valid JSON.
+        list[str]: A list of up to five follow-up questions as strings if the model returns a valid, well-formed response; `None` if the model output cannot be parsed or fails validation.
     """
     logger = get_logger()
     logger.info("Querying model for systematization questions")
@@ -145,18 +144,16 @@ def get_systematized_concepts(
     answers: list[str],
     openai_api_key: str,
 ) -> list[SystematizedConcept] | None:
-    """Generate systematized concepts from the answers to follow-up questions.
-
-    Args:
-        product_description: The description of the AI-powered product.
-        risk_description: The description of the AI risk the product is exposed to.
-        questions: The follow-up questions that were asked.
-        answers: The answers provided by the user.
-        openai_api_key: The OpenAI API key to use the LLM.
-
+    """
+    Produce systematized concepts from answers to follow-up questions for a given product risk.
+    
+    Each returned concept includes `title`, `body`, and `prompt_template` suitable for use as an LLM judge prompt.
+    Parameters:
+        questions (list[str]): Follow-up questions that were asked; must align one-to-one with `answers`.
+        answers (list[str]): User-provided answers corresponding by position to `questions`.
+    
     Returns:
-        A list of systematized concepts with titles, bodies, and prompt templates.
-            Will be None if the model fails to return a valid JSON.
+        list[SystematizedConcept] or None: A list of parsed concepts when the model returns a valid JSON array of objects with keys `title`, `body`, and `prompt_template`; `None` if the model output cannot be parsed or does not match the expected structure.
     """
     # Format questions and answers for the prompt
     questions_and_answers = format_questions_and_answers(questions, answers)

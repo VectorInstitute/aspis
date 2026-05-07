@@ -9,17 +9,13 @@ _logger = None
 
 
 def setup_logging(runtime: Literal["api", "ui"]) -> None:
-    """Setup the logging for the given runtime.
-
-    It should be run at the beginning of the execution for each runtime (API or UI).
-    The LOG_LEVEL environment variable is used to set the logging level. If not set,
-    the default is INFO.
-
-    It will set a global variable with the logger instance, which should be accessed
-    by using the `get_logger` function.
-
+    """
+    Set up module-level logging for the specified runtime.
+    
+    Configures the logging level from the `LOG_LEVEL` environment variable (defaults to `INFO`) and initializes the module-global logger used by `get_logger`. For `runtime == "api"` the function adjusts the `"uvicorn.access"` logger; for other values it configures basic logging and uses the module logger.
+    
     Args:
-        runtime: The runtime to setup the logging for. Can be "api" or "ui".
+        runtime: The runtime to configure logging for, expected to be `"api"` or `"ui"`.
     """
     level = getattr(logging, os.environ.get("LOG_LEVEL", "INFO").upper(), logging.INFO)
 
@@ -39,13 +35,14 @@ def setup_logging(runtime: Literal["api", "ui"]) -> None:
 
 
 def get_logger() -> logging.Logger:
-    """Get the logger instance.
-
-    It will raise a ValueError if the logger is not setup by the
-    `setup_logging` function.
-
+    """
+    Retrieve the module-level logger configured by `setup_logging`.
+    
     Returns:
-        The logger instance.
+        logging.Logger: The configured logger instance.
+    
+    Raises:
+        ValueError: If the logger has not been configured via `setup_logging`.
     """
     if _logger is None:
         raise ValueError("Logger not setup")
