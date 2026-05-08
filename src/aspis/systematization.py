@@ -4,10 +4,12 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from inspect_ai.dataset import Sample
 from langchain_core.prompts import ChatPromptTemplate
 
-from aspis.logging import get_logger
-from aspis.model import get_llm
+from aspis.inferencer import INFERENCE_MODEL, execute_samples_against_model
+from aspis.logging import logger
+from aspis.utils import clean_model_output
 
 
 SYSTEMATIZATION_PAPER_PATH = Path(__file__).parent / "data" / "systematization_paper.txt"
@@ -95,24 +97,25 @@ def get_systematization_questions(
         The follow up systematization questions. Will be None if the model fails to
             return a valid JSON.
     """
-    logger = get_logger()
     logger.info("Querying model for systematization questions")
 
-    llm = get_llm(openai_api_key)
-    response = llm.invoke(
-        SYSTEMATIZATION_PROMPT.format(
+    sample = Sample(
+        input=SYSTEMATIZATION_PROMPT.format(
             product_description=product_description,
             risk_description=risk_description,
             systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
-        )
+        ),
+        target="",
     )
-    raw_response = response.content
+
+    model_outputs = execute_samples_against_model([sample], INFERENCE_MODEL, openai_api_key)
+    assert len(model_outputs) == 1, "Expected exactly one model output"
+    model_output = model_outputs[0]
 
     logger.info("Received response from model")
-    logger.debug("Model's raw response: %s", raw_response)
+    logger.debug("Model's raw response: %s", model_output)
 
-    assert isinstance(raw_response, str)
-    cleaned_response = clean_model_output(raw_response)
+    cleaned_response = clean_model_output(model_output)
     try:
         parsed_response = json.loads(cleaned_response)
     except Exception as e:
@@ -161,30 +164,30 @@ def get_systematized_concepts(
     # Format questions and answers for the prompt
     questions_and_answers = format_questions_and_answers(questions, answers)
 
-    logger = get_logger()
     logger.info("Querying model for systematized concepts")
 
-    llm = get_llm(openai_api_key)
-    response = llm.invoke(
-        SYSTEMATIZED_CONCEPTS_PROMPT.format(
+    sample = Sample(
+        input=SYSTEMATIZED_CONCEPTS_PROMPT.format(
             product_description=product_description,
             risk_description=risk_description,
             systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
             questions_and_answers=questions_and_answers,
-        )
+        ),
+        target="",
     )
-    raw_response = response.content
+
+    model_outputs = execute_samples_against_model([sample], INFERENCE_MODEL, openai_api_key)
+    assert len(model_outputs) == 1, "Expected exactly one model output"
+    model_output = model_outputs[0]
 
     logger.info("Received response from model")
-    logger.debug("Model's raw response: %s", raw_response)
+    logger.debug("Model's raw response: %s", model_output)
 
-    assert isinstance(raw_response, str)
-    cleaned_response = clean_model_output(raw_response)
-
+    cleaned_response = clean_model_output(model_output)
     try:
         concepts_data = json.loads(cleaned_response)
     except Exception as e:
-        logger.exception("Error parsing the response from the model: %s. Model response: %s", e, raw_response)
+        logger.exception("Error parsing the response from the model: %s. Model response: %s", e, cleaned_response)
         return None
 
     if not isinstance(concepts_data, list) or not all(isinstance(concept, dict) for concept in concepts_data):
@@ -209,17 +212,3 @@ def format_questions_and_answers(questions: list[str], answers: list[str]) -> st
         The questions and answers formatted for the prompt.
     """
     return "\n".join([f"Q: {question}\nA: {answer}" for question, answer in zip(questions, answers, strict=True)])
-
-
-def clean_model_output(output: str) -> str:
-    """Clean the raw output of the model.
-
-    Args:
-        output: The raw output of the model.
-
-    Returns:
-        The cleaned output.
-    """
-    cleaned_output = str(output)
-    cleaned_output = cleaned_output.replace("```json", "").replace("```", "")
-    return cleaned_output.strip()

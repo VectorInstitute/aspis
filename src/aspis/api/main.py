@@ -7,12 +7,11 @@ import yaml
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from aspis.inferencer import get_inference_prompt, infer
-from aspis.logging import get_logger, setup_logging
+from aspis.inferencer import INFERENCE_MODEL, evaluate_text, get_inference_prompt
+from aspis.logging import logger
 
 
 app = FastAPI(title="Aspis API")
-setup_logging("api")
 
 
 class EvaluationResponse(BaseModel):
@@ -34,8 +33,9 @@ class EvaluationResponse(BaseModel):
 @app.post("/evaluate_from_file")
 async def evaluate(
     text_to_evaluate: str = Form(...),
-    openai_api_key: str = Form(...),
+    api_key: str = Form(...),
     systematized_concepts_file: UploadFile = File(...),  # noqa: B008 mypy's false positive on File(...)
+    model_name: str = Form(INFERENCE_MODEL),
 ) -> list[EvaluationResponse]:
     """Evaluate an input text using systematized concepts from a file.
 
@@ -43,7 +43,9 @@ async def evaluate(
 
     Args:
         text_to_evaluate: The text to evaluate.
-        openai_api_key: The OpenAI API key to use the LLM.
+        api_key: The API key to use to connect to the model.
+        model_name: The name of the model to use for the evaluation. Optional,
+            defaults to INFERENCE_MODEL.
         systematized_concepts_file: The file containing the systematized concepts.
             It must be a `.yaml` file that contains a `systematized_concepts` key
             with a list of systematized concepts. Each systematized concept must
@@ -59,7 +61,6 @@ async def evaluate(
         A list of evaluations for the input text, one for each systematized concept
             in the file.
     """
-    logger = get_logger()
     try:
         file_content = await systematized_concepts_file.read()
         file_text = file_content.decode("utf-8")
@@ -82,7 +83,7 @@ async def evaluate(
 
         logger.info("%s: Evaluating input text against all concepts...", datetime.datetime.now())
 
-        results = await infer(text_to_evaluate, prompt_templates, openai_api_key)
+        results = evaluate_text(text_to_evaluate, prompt_templates, model_name, api_key)
 
         evaluation_responses = []
         for i in range(len(systematized_concepts)):

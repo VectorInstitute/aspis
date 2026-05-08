@@ -2,52 +2,40 @@
 
 import logging
 import os
-from typing import Literal
 
 
-_logger = None
+def get_logger_level() -> int:
+    """Get the logging level from the LOG_LEVEL environment variable.
+
+    If not set, the default is INFO.
+
+    Returns:
+        The logging level.
+    """
+    return getattr(logging, os.environ.get("LOG_LEVEL", "INFO").upper(), logging.INFO)
 
 
-def setup_logging(runtime: Literal["api", "ui"]) -> None:
-    """Setup the logging for the given runtime.
+def setup_logger() -> logging.Logger:
+    """Sets up the logging for the given runtime, detected dynamically.
 
-    It should be run at the beginning of the execution for each runtime (API or UI).
     The LOG_LEVEL environment variable is used to set the logging level. If not set,
     the default is INFO.
 
-    It will set a global variable with the logger instance, which should be accessed
-    by using the `get_logger` function.
-
-    Args:
-        runtime: The runtime to setup the logging for. Can be "api" or "ui".
+    Returns:
+        The configuredlogger instance.
     """
-    level = getattr(logging, os.environ.get("LOG_LEVEL", "INFO").upper(), logging.INFO)
-
-    if runtime == "api":
+    if "uvicorn.access" in logging.Logger.manager.loggerDict:
         logger = logging.getLogger("uvicorn.access")
-        logger.setLevel(level)
+        logger.setLevel(get_logger_level())
     else:
         logging.basicConfig(
-            level=level,
+            level=get_logger_level(),
             format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
         )
         logger = logging.getLogger(__name__)
 
-    global _logger  # noqa: PLW0603
-    _logger = logger
+    return logger
 
 
-def get_logger() -> logging.Logger:
-    """Get the logger instance.
-
-    It will raise a ValueError if the logger is not setup by the
-    `setup_logging` function.
-
-    Returns:
-        The logger instance.
-    """
-    if _logger is None:
-        raise ValueError("Logger not setup")
-
-    return _logger
+logger = setup_logger()

@@ -1,6 +1,5 @@
 """Scorer for applications using Aspis as anLLM-as-a-judge."""
 
-import asyncio
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -14,42 +13,26 @@ from inspect_ai.log import EvalLog
 from inspect_ai.scorer import model_graded_qa
 from inspect_ai.solver import generate
 
-from aspis.logging import get_logger
-from aspis.systematization import clean_model_output
+from aspis.logging import get_logger_level, logger
+from aspis.utils import clean_model_output
 
 
 INFERENCE_MODEL = "openai/gpt-4o"
 
 
-async def infer(input_text: str, prompt_templates: list[str], api_key: str) -> list[dict[str, Any]]:
-    """Infer the input text against the model using the prompt.
-
-    Will use `get_inference_prompt` function to replace placeholders in the prompt
-    with the input text.
+def execute_samples_against_model(samples: list[Sample], model_name: str, api_key: str) -> list[str]:
+    """Executes a list of samples against a model and returns the model outputs.
 
     Args:
-        input_text: The input text to infer.
-        prompt_templates: The list of prompt templates to use to infer the input text.
-        api_key: The API key to use to infer the input text.
+        samples: The list of samples to execute against the model.
+        model_name: The name of the model to execute the samples against.
+        api_key: The API key to use to execute the samples against the model.
 
     Returns:
-        The inferred output from the model, parsed from a json to a dictionary.
+        The model outputs.
     """
-    logger = get_logger()
-
-    samples = []
-    for prompt_template in prompt_templates:
-        input_prompt = get_inference_prompt(input_text, prompt_template)
-        samples.append(Sample(input=input_prompt, target=""))
-
-    loop = asyncio.get_event_loop()
     with ThreadPoolExecutor() as executor:
-        result = await loop.run_in_executor(
-            executor,
-            run_eval,
-            samples,
-            api_key,
-        )
+        result = executor.submit(run_eval, samples, model_name, api_key).result()
 
     assert len(result) == 1, "Expected exactly one result"
 
@@ -67,8 +50,36 @@ async def infer(input_text: str, prompt_templates: list[str], api_key: str) -> l
     for sample in result[0].samples:
         message_content = sample.output.choices[0].message.content
         assert isinstance(message_content, str), "Expected message content to be a string"
-        cleaned_message_content = clean_model_output(message_content)
+        model_outputs.append(message_content)
 
+    return model_outputs
+
+
+def evaluate_text(input_text: str, prompt_templates: list[str], model_name: str, api_key: str) -> list[dict[str, Any]]:
+    """Evaluates input text using the model and the prompt.
+
+    Will use `get_inference_prompt` function to replace placeholders in the prompt
+    with the input text.
+
+    Args:
+        input_text: The input text to infer.
+        prompt_templates: The list of prompt templates to use to infer the input text.
+        model_name: The name of the model to use to infer the input text.
+        api_key: The API key to use to connect to the model.
+
+    Returns:
+        The inferred output from the model, parsed from a json to a dictionary.
+    """
+    samples = []
+    for prompt_template in prompt_templates:
+        input_prompt = get_inference_prompt(input_text, prompt_template)
+        samples.append(Sample(input=input_prompt, target=""))
+
+    model_outputs = execute_samples_against_model(samples, model_name, api_key)
+
+    parsed_model_outputs = []
+    for model_output in model_outputs:
+        cleaned_message_content = clean_model_output(model_output)
         try:
             parsed_message_content = json.loads(cleaned_message_content)
         except Exception:
@@ -76,16 +87,17 @@ async def infer(input_text: str, prompt_templates: list[str], api_key: str) -> l
             logger.debug("Cleaned message content: %s", cleaned_message_content)
             parsed_message_content = {"raw_output": cleaned_message_content}
 
-        model_outputs.append(parsed_message_content)
+        parsed_model_outputs.append(parsed_message_content)
 
-    return model_outputs
+    return parsed_model_outputs
 
 
-def run_eval(samples: list[Sample], api_key: str) -> list[EvalLog]:
+def run_eval(samples: list[Sample], model_name: str, api_key: str) -> list[EvalLog]:
     """Helper function to run eval on a list of samples with a specific API key.
 
     Args:
         samples: The list of samples to run the eval on.
+        model_name: The name of the model to use for the evaluation.
         api_key: The API key to use to run the eval.
 
     Returns:
@@ -98,7 +110,13 @@ def run_eval(samples: list[Sample], api_key: str) -> list[EvalLog]:
     )
     with TemporaryDirectory() as temp_dir:
         os.environ["OPENAI_API_KEY"] = api_key
-        return inspect_ai_eval(task, model=INFERENCE_MODEL, log_dir=temp_dir)
+        result = inspect_ai_eval(task, model=model_name, log_dir=temp_dir)
+        os.environ.pop("OPENAI_API_KEY", None)
+
+        # Reset the logger level to the default level since inspectai sets it to WARNING
+        logger.setLevel(get_logger_level())
+
+    return result
 
 
 def get_inference_prompt(input_text: str, prompt: str) -> str:

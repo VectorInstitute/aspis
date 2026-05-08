@@ -53,7 +53,7 @@ def test_evaluate_from_file_success(mock_inspect_ai_eval: Mock) -> None:
             "/evaluate_from_file",
             data={
                 "text_to_evaluate": test_text_to_evaluate,
-                "openai_api_key": test_openai_api_key,
+                "api_key": test_openai_api_key,
             },
             files={
                 "systematized_concepts_file": (
@@ -102,7 +102,7 @@ def test_evaluate_from_file_failure_evaluation_error(mock_inspect_ai_eval: Mock)
             "/evaluate_from_file",
             data={
                 "text_to_evaluate": "Test text",
-                "openai_api_key": "test api key",
+                "api_key": "test api key",
             },
             files={
                 "systematized_concepts_file": (
@@ -125,7 +125,7 @@ def test_evaluate_from_file_failure_bad_format() -> None:
             "/evaluate_from_file",
             data={
                 "text_to_evaluate": "Test text",
-                "openai_api_key": "test api key",
+                "api_key": "test api key",
             },
             files={
                 "systematized_concepts_file": (
@@ -152,7 +152,7 @@ def test_evaluate_from_file_failure_missing_fields() -> None:
                 "/evaluate_from_file",
                 data={
                     "text_to_evaluate": "Test text",
-                    "openai_api_key": "test api key",
+                    "api_key": "test api key",
                 },
                 files={
                     "systematized_concepts_file": (
@@ -210,7 +210,7 @@ def test_evaluate_from_file_failure_assertions(mock_inspect_ai_eval: Mock) -> No
                 "/evaluate_from_file",
                 data={
                     "text_to_evaluate": "Test text",
-                    "openai_api_key": "test api key",
+                    "api_key": "test api key",
                 },
                 files={
                     "systematized_concepts_file": (
