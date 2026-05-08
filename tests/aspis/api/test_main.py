@@ -24,10 +24,7 @@ def test_evaluate_from_file_success(mock_inspect_ai_eval: Mock) -> None:
     mock_inspect_ai_eval.return_value = [
         Mock(
             status="success",
-            samples=[
-                Mock(output=Mock(choices=[Mock(message=Mock(content=test_scores[0]))])),
-                Mock(output=Mock(choices=[Mock(message=Mock(content=test_scores[1]))])),
-            ],
+            samples=[Mock(output=Mock(choices=[Mock(message=Mock(content=test_score))])) for test_score in test_scores],
         ),
     ]
 
@@ -42,6 +39,10 @@ def test_evaluate_from_file_success(mock_inspect_ai_eval: Mock) -> None:
             {
                 "title": "Test concept 2",
                 "prompt_template": "<text_to_evaluate/> Test template 2",
+            },
+            {
+                "title": "Test concept 3",
+                "prompt_template": "<text_to_evaluate/> Test template 3",
             },
         ]
         expected_prompts = [
@@ -69,9 +70,11 @@ def test_evaluate_from_file_success(mock_inspect_ai_eval: Mock) -> None:
         json_response = response.json()
         for i in range(len(json_response)):
             # Parsing all the scores but the last one, which is not a valid json.
-            expected_result = (
-                json.loads(clean_model_output(test_scores[i])) if i != len(test_scores) - 1 else test_scores[i]
-            )
+            if i != len(test_scores) - 1:
+                expected_result = json.loads(clean_model_output(test_scores[i]))
+            else:
+                expected_result = {"raw_output": test_scores[i]}
+
             assert json_response[i]["systematized_concept_title"] == test_systematized_concepts[i]["title"]
             assert json_response[i]["result"] == expected_result
             assert json_response[i]["prompt"] == expected_prompts[i]

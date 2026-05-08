@@ -74,7 +74,7 @@ async def infer(input_text: str, prompt_templates: list[str], api_key: str) -> l
         except Exception:
             logger.exception("Error parsing the model output as json. Writing the raw output to the return.")
             logger.debug("Cleaned message content: %s", cleaned_message_content)
-            parsed_message_content = cleaned_message_content
+            parsed_message_content = {"raw_output": cleaned_message_content}
 
         model_outputs.append(parsed_message_content)
 
