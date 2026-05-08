@@ -19,8 +19,6 @@ from aspis.systematization import clean_model_output
 @patch("aspis.inferencer.inspect_ai_eval")
 def test_evaluate_from_file_success(mock_inspect_ai_eval: Mock) -> None:
     test_scores = ['{"score": "test score 1"}', '```json{"score": "test score 2"}```', "not a valid json test score"]
-    invoke_mock = Mock()
-    invoke_mock.side_effect = [Mock(content=test_score) for test_score in test_scores]
     mock_inspect_ai_eval.return_value = [
         Mock(
             status="success",
