@@ -162,17 +162,10 @@ def get_systematized_concepts(
             Will be None if the model fails to return a valid JSON.
     """
     # Format questions and answers for the prompt
-    questions_and_answers = format_questions_and_answers(questions, answers)
-
     logger.info("Querying model for systematized concepts")
 
     sample = Sample(
-        input=SYSTEMATIZED_CONCEPTS_PROMPT.format(
-            product_description=product_description,
-            risk_description=risk_description,
-            systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
-            questions_and_answers=questions_and_answers,
-        ),
+        input=get_systematized_concepts_prompt(product_description, risk_description, questions, answers),
         target="",
     )
 
@@ -201,14 +194,47 @@ def get_systematized_concepts(
     return [SystematizedConcept(**concept) for concept in concepts_data]
 
 
-def format_questions_and_answers(questions: list[str], answers: list[str]) -> str:
-    """Get the questions and answers formatted for the prompt.
+def get_systematization_questions_prompt(product_description: str, risk_description: str) -> str:
+    """Get the systematization questions prompt.
 
     Args:
+        product_description: The description of the AI-powered product.
+        risk_description: The description of the AI risk the product is exposed to.
+
+    Returns:
+        The systematization questions prompt.
+    """
+    return SYSTEMATIZATION_PROMPT.format(
+        product_description=product_description,
+        risk_description=risk_description,
+        systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
+    )
+
+
+def get_systematized_concepts_prompt(
+    product_description: str,
+    risk_description: str,
+    questions: list[str],
+    answers: list[str],
+) -> str:
+    """Get the systematized concepts prompt.
+
+    Args:
+        product_description: The description of the AI-powered product.
+        risk_description: The description of the AI risk the product is exposed to.
         questions: The follow-up questions that were asked.
         answers: The answers provided by the user.
 
     Returns:
-        The questions and answers formatted for the prompt.
+        The systematized concepts prompt.
     """
-    return "\n".join([f"Q: {question}\nA: {answer}" for question, answer in zip(questions, answers, strict=True)])
+    questions_and_answers = "\n".join(
+        [f"Q: {question}\nA: {answer}" for question, answer in zip(questions, answers, strict=True)]
+    )
+
+    return SYSTEMATIZED_CONCEPTS_PROMPT.format(
+        product_description=product_description,
+        risk_description=risk_description,
+        systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
+        questions_and_answers=questions_and_answers,
+    )

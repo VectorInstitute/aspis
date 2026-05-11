@@ -4,7 +4,6 @@ import json
 from unittest.mock import Mock, patch
 
 from inspect_ai.dataset import Sample
-from pytest import raises
 
 from aspis.inferencer import INFERENCE_MODEL
 from aspis.systematization import (
@@ -12,9 +11,10 @@ from aspis.systematization import (
     SYSTEMATIZATION_PROMPT,
     SYSTEMATIZED_CONCEPTS_PROMPT,
     SystematizedConcept,
-    format_questions_and_answers,
     get_systematization_questions,
+    get_systematization_questions_prompt,
     get_systematized_concepts,
+    get_systematized_concepts_prompt,
 )
 
 
@@ -43,11 +43,7 @@ def test_get_systematization_questions_success(mock_execute_samples: Mock) -> No
         mock_execute_samples.assert_called_once_with(
             [
                 Sample(
-                    input=SYSTEMATIZATION_PROMPT.format(
-                        product_description=test_product_description,
-                        risk_description=test_risk_description,
-                        systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
-                    ),
+                    input=get_systematization_questions_prompt(test_product_description, test_risk_description),
                     target="",
                 )
             ],
@@ -86,11 +82,7 @@ def test_get_systematization_questions_failure_invalid_results(mock_execute_samp
         mock_execute_samples.assert_called_once_with(
             [
                 Sample(
-                    input=SYSTEMATIZATION_PROMPT.format(
-                        product_description=test_product_description,
-                        risk_description=test_risk_description,
-                        systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
-                    ),
+                    input=get_systematization_questions_prompt(test_product_description, test_risk_description),
                     target="",
                 )
             ],
@@ -139,11 +131,11 @@ def test_get_systematized_concepts_success(mock_execute_samples: Mock) -> None:
         mock_execute_samples.assert_called_once_with(
             [
                 Sample(
-                    input=SYSTEMATIZED_CONCEPTS_PROMPT.format(
-                        product_description=test_product_description,
-                        risk_description=test_risk_description,
-                        systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
-                        questions_and_answers=format_questions_and_answers(test_questions, test_answers),
+                    input=get_systematized_concepts_prompt(
+                        test_product_description,
+                        test_risk_description,
+                        test_questions,
+                        test_answers,
                     ),
                     target="",
                 )
@@ -188,11 +180,11 @@ def test_get_systematized_concepts_failure_invalid_results(mock_execute_samples:
         mock_execute_samples.assert_called_once_with(
             [
                 Sample(
-                    input=SYSTEMATIZED_CONCEPTS_PROMPT.format(
-                        product_description=test_product_description,
-                        risk_description=test_risk_description,
-                        systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
-                        questions_and_answers=format_questions_and_answers(test_questions, test_answers),
+                    input=get_systematized_concepts_prompt(
+                        test_product_description,
+                        test_risk_description,
+                        test_questions,
+                        test_answers,
                     ),
                     target="",
                 )
@@ -203,20 +195,37 @@ def test_get_systematized_concepts_failure_invalid_results(mock_execute_samples:
         mock_execute_samples.reset_mock()
 
 
-def test_format_questions_and_answers_success() -> None:
+def test_get_systematization_questions_prompt() -> None:
+    test_product_description = "test product description"
+    test_risk_description = "test risk description"
+
+    prompt = get_systematization_questions_prompt(test_product_description, test_risk_description)
+
+    expected_prompt = SYSTEMATIZATION_PROMPT.format(
+        product_description=test_product_description,
+        risk_description=test_risk_description,
+        systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
+    )
+    assert prompt == expected_prompt
+
+
+def test_get_systematized_concepts_prompt() -> None:
+    test_product_description = "test product description"
+    test_risk_description = "test risk description"
     test_questions = ["test question 1", "test question 2"]
     test_answers = ["test answer to question 1", "test answer to question 2"]
 
-    result = format_questions_and_answers(test_questions, test_answers)
-
-    assert result == "\n".join(
-        [f"Q: {question}\nA: {answer}" for question, answer in zip(test_questions, test_answers)]
+    prompt = get_systematized_concepts_prompt(
+        test_product_description, test_risk_description, test_questions, test_answers
     )
 
-
-def test_format_questions_and_answers_failure_mismatched_lengths() -> None:
-    test_questions = ["test question 1", "test question 2"]
-    test_answers = ["test answer to question 1"]
-
-    with raises(ValueError):
-        format_questions_and_answers(test_questions, test_answers)
+    questions_and_answers = "\n".join(
+        [f"Q: {question}\nA: {answer}" for question, answer in zip(test_questions, test_answers, strict=True)]
+    )
+    expected_prompt = SYSTEMATIZED_CONCEPTS_PROMPT.format(
+        product_description=test_product_description,
+        risk_description=test_risk_description,
+        systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
+        questions_and_answers=questions_and_answers,
+    )
+    assert prompt == expected_prompt

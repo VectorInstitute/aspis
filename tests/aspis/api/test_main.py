@@ -12,7 +12,7 @@ from inspect_ai.solver import generate
 
 from aspis.api.main import app
 from aspis.inferencer import INFERENCE_MODEL
-from aspis.systematization import clean_model_output
+from aspis.utils import clean_model_output
 
 
 @pytest.mark.integration_test

@@ -15,15 +15,13 @@ from streamlit.testing.v1 import AppTest
 
 from aspis.inferencer import INFERENCE_MODEL
 from aspis.systematization import (
-    SYSTEMATIZATION_PAPER_PATH,
-    SYSTEMATIZATION_PROMPT,
-    SYSTEMATIZED_CONCEPTS_PROMPT,
     SystematizedConcept,
-    format_questions_and_answers,
+    get_systematization_questions_prompt,
+    get_systematized_concepts_prompt,
 )
 
 
-def make_inspect_ai_side_effect(api_key: str, return_value: Any) -> Callable[[Any, Any], None]:
+def make_inspect_ai_side_effect(api_key: str, return_value: Any) -> Callable[[...], list[Mock]]:
     side_effect_return = [
         Mock(
             status="success",
@@ -31,7 +29,7 @@ def make_inspect_ai_side_effect(api_key: str, return_value: Any) -> Callable[[An
         ),
     ]
 
-    def side_effect(*args: Any, **kwargs: Any) -> None:
+    def side_effect(*args: Any, **kwargs: Any) -> list[Mock]:
         assert os.environ["OPENAI_API_KEY"] == api_key
         return side_effect_return
 
@@ -79,11 +77,7 @@ def test_main_ask_for_questions_when_inputs_are_set(mock_inspect_ai_eval: Mock) 
     mock_inspect_ai_eval.assert_called_once_with(ANY, model=INFERENCE_MODEL, log_dir=ANY)
     task = mock_inspect_ai_eval.call_args_list[0][0][0]
     expected_sample = Sample(
-        input=SYSTEMATIZATION_PROMPT.format(
-            product_description=test_product_description,
-            risk_description=test_risk_description,
-            systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
-        ),
+        input=get_systematization_questions_prompt(test_product_description, test_risk_description),
         target="",
     )
     assert task.dataset[0] == expected_sample
@@ -175,11 +169,7 @@ def test_main_render_error_when_questions_are_none(mock_inspect_ai_eval: Mock) -
     mock_inspect_ai_eval.assert_called_once_with(ANY, model=INFERENCE_MODEL, log_dir=ANY)
     task = mock_inspect_ai_eval.call_args_list[0][0][0]
     expected_sample = Sample(
-        input=SYSTEMATIZATION_PROMPT.format(
-            product_description=test_product_description,
-            risk_description=test_risk_description,
-            systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
-        ),
+        input=get_systematization_questions_prompt(test_product_description, test_risk_description),
         target="",
     )
     assert task.dataset[0] == expected_sample
@@ -211,11 +201,7 @@ def test_main_render_questions_on_success(mock_inspect_ai_eval: Mock) -> None:
     mock_inspect_ai_eval.assert_called_once_with(ANY, model=INFERENCE_MODEL, log_dir=ANY)
     task = mock_inspect_ai_eval.call_args_list[0][0][0]
     expected_sample = Sample(
-        input=SYSTEMATIZATION_PROMPT.format(
-            product_description=test_product_description,
-            risk_description=test_risk_description,
-            systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
-        ),
+        input=get_systematization_questions_prompt(test_product_description, test_risk_description),
         target="",
     )
     assert task.dataset[0] == expected_sample
@@ -336,22 +322,18 @@ def test_main_render_results_when_answers_are_set(mock_inspect_ai_eval: Mock) ->
     mock_inspect_ai_eval.assert_called_with(ANY, model=INFERENCE_MODEL, log_dir=ANY)
     task = mock_inspect_ai_eval.call_args_list[0][0][0]
     expected_sample = Sample(
-        input=SYSTEMATIZATION_PROMPT.format(
-            product_description=test_product_description,
-            risk_description=test_risk_description,
-            systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
-        ),
+        input=get_systematization_questions_prompt(test_product_description, test_risk_description),
         target="",
     )
     assert task.dataset[0] == expected_sample
 
     task = mock_inspect_ai_eval.call_args_list[1][0][0]
     expected_sample = Sample(
-        input=SYSTEMATIZED_CONCEPTS_PROMPT.format(
-            product_description=test_product_description,
-            risk_description=test_risk_description,
-            systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
-            questions_and_answers=format_questions_and_answers(test_questions, test_answers),
+        input=get_systematized_concepts_prompt(
+            test_product_description,
+            test_risk_description,
+            test_questions,
+            test_answers,
         ),
         target="",
     )
@@ -394,21 +376,17 @@ def test_main_render_error_when_systematized_concepts_are_none(mock_inspect_ai_e
     mock_inspect_ai_eval.assert_called_with(ANY, model=INFERENCE_MODEL, log_dir=ANY)
     task = mock_inspect_ai_eval.call_args_list[0][0][0]
     expected_sample = Sample(
-        input=SYSTEMATIZATION_PROMPT.format(
-            product_description=test_product_description,
-            risk_description=test_risk_description,
-            systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
-        ),
+        input=get_systematization_questions_prompt(test_product_description, test_risk_description),
         target="",
     )
     assert task.dataset[0] == expected_sample
     task = mock_inspect_ai_eval.call_args_list[1][0][0]
     expected_sample = Sample(
-        input=SYSTEMATIZED_CONCEPTS_PROMPT.format(
-            product_description=test_product_description,
-            risk_description=test_risk_description,
-            systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
-            questions_and_answers=format_questions_and_answers(test_questions, test_answers),
+        input=get_systematized_concepts_prompt(
+            test_product_description,
+            test_risk_description,
+            test_questions,
+            test_answers,
         ),
         target="",
     )

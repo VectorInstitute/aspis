@@ -22,7 +22,7 @@ def setup_logger() -> logging.Logger:
     the default is INFO.
 
     Returns:
-        The configuredlogger instance.
+        The configured logger instance.
     """
     if "uvicorn.access" in logging.Logger.manager.loggerDict:
         logger = logging.getLogger("uvicorn.access")

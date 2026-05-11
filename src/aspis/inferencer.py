@@ -4,6 +4,7 @@ import json
 import os
 from concurrent.futures import ThreadPoolExecutor
 from tempfile import TemporaryDirectory
+from threading import Lock
 from typing import Any
 
 from inspect_ai import Task
@@ -18,6 +19,7 @@ from aspis.utils import clean_model_output
 
 
 INFERENCE_MODEL = "openai/gpt-4o"
+_INSPECTAI_EVAL_LOCK = Lock()
 
 
 def execute_samples_against_model(samples: list[Sample], model_name: str, api_key: str) -> list[str]:
@@ -31,6 +33,8 @@ def execute_samples_against_model(samples: list[Sample], model_name: str, api_ke
     Returns:
         The model outputs.
     """
+    # Executing this in a synchronous thread pool executor to make InspectAI
+    # work well with streamlit's main thread
     with ThreadPoolExecutor() as executor:
         result = executor.submit(run_eval, samples, model_name, api_key).result()
 
@@ -108,13 +112,15 @@ def run_eval(samples: list[Sample], model_name: str, api_key: str) -> list[EvalL
         solver=[generate()],
         scorer=model_graded_qa(),
     )
-    with TemporaryDirectory() as temp_dir:
-        os.environ["OPENAI_API_KEY"] = api_key
-        result = inspect_ai_eval(task, model=model_name, log_dir=temp_dir)
-        os.environ.pop("OPENAI_API_KEY", None)
-
-        # Reset the logger level to the default level since inspectai sets it to WARNING
-        logger.setLevel(get_logger_level())
+    with TemporaryDirectory() as temp_dir, _INSPECTAI_EVAL_LOCK:
+        try:
+            os.environ["OPENAI_API_KEY"] = api_key
+            result = inspect_ai_eval(task, model=model_name, log_dir=temp_dir)
+        finally:
+            os.environ.pop("OPENAI_API_KEY", None)
+            # Reset the logger level to the default level since
+            # inspectai sets it to WARNING
+            logger.setLevel(get_logger_level())
 
     return result
 

@@ -98,8 +98,8 @@ async def evaluate(
         return evaluation_responses
 
     except AssertionError as e:
-        logger.exception(f"Assertion error during evaluation: {e}")
+        logger.exception("Assertion error during evaluation: %s", e)
         raise HTTPException(status_code=422, detail=str(e)) from e
     except Exception as e:
-        logger.exception(f"Unexpected error during evaluation: {e}")
+        logger.exception("Unexpected error during evaluation: %s", e)
         raise HTTPException(status_code=500, detail=f"Evaluation failed: {str(e)}") from e
