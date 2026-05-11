@@ -3,30 +3,30 @@
 import json
 from unittest.mock import Mock, patch
 
-from pytest import raises
+from inspect_ai.dataset import Sample
 
+from aspis.inferencer import INFERENCE_MODEL
 from aspis.systematization import (
     SYSTEMATIZATION_PAPER_PATH,
     SYSTEMATIZATION_PROMPT,
     SYSTEMATIZED_CONCEPTS_PROMPT,
     SystematizedConcept,
-    format_questions_and_answers,
     get_systematization_questions,
+    get_systematization_questions_prompt,
     get_systematized_concepts,
+    get_systematized_concepts_prompt,
 )
 
 
-@patch("aspis.systematization.get_llm")
-def test_get_systematization_questions_success(mock_get_llm: Mock) -> None:
+@patch("aspis.systematization.execute_samples_against_model")
+def test_get_systematization_questions_success(mock_execute_samples: Mock) -> None:
     model_responses = [
         '["test question 1", "test question 2"]',
         '```json ["test question 1", "test question 2"]   ```  ',
     ]
 
     for model_response in model_responses:
-        invoke_mock = Mock()
-        invoke_mock.return_value = Mock(content=model_response)
-        mock_get_llm.return_value = Mock(invoke=invoke_mock)
+        mock_execute_samples.return_value = [model_response]
 
         test_product_description = "test product description"
         test_risk_description = "test risk description"
@@ -40,20 +40,22 @@ def test_get_systematization_questions_success(mock_get_llm: Mock) -> None:
 
         assert questions == ["test question 1", "test question 2"]
 
-        mock_get_llm.assert_called_once_with(test_openai_api_key)
-        invoke_mock.assert_called_once_with(
-            SYSTEMATIZATION_PROMPT.format(
-                product_description=test_product_description,
-                risk_description=test_risk_description,
-                systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
-            )
+        mock_execute_samples.assert_called_once_with(
+            [
+                Sample(
+                    input=get_systematization_questions_prompt(test_product_description, test_risk_description),
+                    target="",
+                )
+            ],
+            INFERENCE_MODEL,
+            test_openai_api_key,
         )
 
-        mock_get_llm.reset_mock()
+        mock_execute_samples.reset_mock()
 
 
-@patch("aspis.systematization.get_llm")
-def test_get_systematization_questions_failure_invalid_results(mock_get_llm: Mock) -> None:
+@patch("aspis.systematization.execute_samples_against_model")
+def test_get_systematization_questions_failure_invalid_results(mock_execute_samples: Mock) -> None:
     invalid_model_responses = [
         "invalid json",
         '[{"invalid": "json"}]',
@@ -64,9 +66,7 @@ def test_get_systematization_questions_failure_invalid_results(mock_get_llm: Moc
     ]
 
     for invalid_model_response in invalid_model_responses:
-        invoke_mock = Mock()
-        invoke_mock.return_value = Mock(content=invalid_model_response)
-        mock_get_llm.return_value = Mock(invoke=invoke_mock)
+        mock_execute_samples.return_value = [invalid_model_response]
 
         test_product_description = "test product description"
         test_risk_description = "test risk description"
@@ -79,20 +79,21 @@ def test_get_systematization_questions_failure_invalid_results(mock_get_llm: Moc
         )
 
         assert questions is None
-        mock_get_llm.assert_called_once_with(test_openai_api_key)
-        invoke_mock.assert_called_once_with(
-            SYSTEMATIZATION_PROMPT.format(
-                product_description=test_product_description,
-                risk_description=test_risk_description,
-                systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
-            )
+        mock_execute_samples.assert_called_once_with(
+            [
+                Sample(
+                    input=get_systematization_questions_prompt(test_product_description, test_risk_description),
+                    target="",
+                )
+            ],
+            INFERENCE_MODEL,
+            test_openai_api_key,
         )
+        mock_execute_samples.reset_mock()
 
-        mock_get_llm.reset_mock()
 
-
-@patch("aspis.systematization.get_llm")
-def test_get_systematized_concepts_success(mock_get_llm: Mock) -> None:
+@patch("aspis.systematization.execute_samples_against_model")
+def test_get_systematized_concepts_success(mock_execute_samples: Mock) -> None:
     test_concepts = [
         {
             "title": "test concept 1",
@@ -111,9 +112,7 @@ def test_get_systematized_concepts_success(mock_get_llm: Mock) -> None:
     ]
 
     for model_response in model_responses:
-        invoke_mock = Mock()
-        invoke_mock.return_value = Mock(content=model_response)
-        mock_get_llm.return_value = Mock(invoke=invoke_mock)
+        mock_execute_samples.return_value = [model_response]
 
         test_product_description = "test product description"
         test_risk_description = "test risk description"
@@ -129,22 +128,28 @@ def test_get_systematized_concepts_success(mock_get_llm: Mock) -> None:
             openai_api_key=test_openai_api_key,
         )
 
-        mock_get_llm.assert_called_once_with(test_openai_api_key)
-        invoke_mock.assert_called_once_with(
-            SYSTEMATIZED_CONCEPTS_PROMPT.format(
-                product_description=test_product_description,
-                risk_description=test_risk_description,
-                systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
-                questions_and_answers=format_questions_and_answers(test_questions, test_answers),
-            )
+        mock_execute_samples.assert_called_once_with(
+            [
+                Sample(
+                    input=get_systematized_concepts_prompt(
+                        test_product_description,
+                        test_risk_description,
+                        test_questions,
+                        test_answers,
+                    ),
+                    target="",
+                )
+            ],
+            INFERENCE_MODEL,
+            test_openai_api_key,
         )
         assert systematized_concepts == [SystematizedConcept(**test_concept) for test_concept in test_concepts]
 
-        mock_get_llm.reset_mock()
+        mock_execute_samples.reset_mock()
 
 
-@patch("aspis.systematization.get_llm")
-def test_get_systematized_concepts_failure_invalid_results(mock_get_llm: Mock) -> None:
+@patch("aspis.systematization.execute_samples_against_model")
+def test_get_systematized_concepts_failure_invalid_results(mock_execute_samples: Mock) -> None:
     invalid_model_responses = [
         "invalid json",
         '["invalid", "json"]',
@@ -155,9 +160,7 @@ def test_get_systematized_concepts_failure_invalid_results(mock_get_llm: Mock) -
     ]
 
     for invalid_model_response in invalid_model_responses:
-        invoke_mock = Mock()
-        invoke_mock.return_value = Mock(content=invalid_model_response)
-        mock_get_llm.return_value = Mock(invoke=invoke_mock)
+        mock_execute_samples.return_value = [invalid_model_response]
 
         test_product_description = "test product description"
         test_risk_description = "test risk description"
@@ -174,33 +177,55 @@ def test_get_systematized_concepts_failure_invalid_results(mock_get_llm: Mock) -
         )
 
         assert systematized_concepts is None
-        mock_get_llm.assert_called_once_with(test_openai_api_key)
-        invoke_mock.assert_called_once_with(
-            SYSTEMATIZED_CONCEPTS_PROMPT.format(
-                product_description=test_product_description,
-                risk_description=test_risk_description,
-                systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
-                questions_and_answers=format_questions_and_answers(test_questions, test_answers),
-            )
+        mock_execute_samples.assert_called_once_with(
+            [
+                Sample(
+                    input=get_systematized_concepts_prompt(
+                        test_product_description,
+                        test_risk_description,
+                        test_questions,
+                        test_answers,
+                    ),
+                    target="",
+                )
+            ],
+            INFERENCE_MODEL,
+            test_openai_api_key,
         )
+        mock_execute_samples.reset_mock()
 
-        mock_get_llm.reset_mock()
+
+def test_get_systematization_questions_prompt() -> None:
+    test_product_description = "test product description"
+    test_risk_description = "test risk description"
+
+    prompt = get_systematization_questions_prompt(test_product_description, test_risk_description)
+
+    expected_prompt = SYSTEMATIZATION_PROMPT.format(
+        product_description=test_product_description,
+        risk_description=test_risk_description,
+        systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
+    )
+    assert prompt == expected_prompt
 
 
-def test_format_questions_and_answers_success() -> None:
+def test_get_systematized_concepts_prompt() -> None:
+    test_product_description = "test product description"
+    test_risk_description = "test risk description"
     test_questions = ["test question 1", "test question 2"]
     test_answers = ["test answer to question 1", "test answer to question 2"]
 
-    result = format_questions_and_answers(test_questions, test_answers)
-
-    assert result == "\n".join(
-        [f"Q: {question}\nA: {answer}" for question, answer in zip(test_questions, test_answers)]
+    prompt = get_systematized_concepts_prompt(
+        test_product_description, test_risk_description, test_questions, test_answers
     )
 
-
-def test_format_questions_and_answers_failure_mismatched_lengths() -> None:
-    test_questions = ["test question 1", "test question 2"]
-    test_answers = ["test answer to question 1"]
-
-    with raises(ValueError):
-        format_questions_and_answers(test_questions, test_answers)
+    questions_and_answers = "\n".join(
+        [f"Q: {question}\nA: {answer}" for question, answer in zip(test_questions, test_answers, strict=True)]
+    )
+    expected_prompt = SYSTEMATIZED_CONCEPTS_PROMPT.format(
+        product_description=test_product_description,
+        risk_description=test_risk_description,
+        systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
+        questions_and_answers=questions_and_answers,
+    )
+    assert prompt == expected_prompt
