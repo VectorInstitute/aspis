@@ -1,17 +1,46 @@
 """Test for the main module."""
 
+import json
+import os
 from copy import deepcopy
 from dataclasses import asdict
 from io import BytesIO
+from typing import Any, Callable
 from unittest.mock import ANY, Mock, patch
 
+import pytest
 import yaml
+from inspect_ai.dataset import Sample
 from streamlit.testing.v1 import AppTest
 
-from aspis.systematization import SystematizedConcept
+from aspis.inferencer import INFERENCE_MODEL
+from aspis.systematization import (
+    SYSTEMATIZATION_PAPER_PATH,
+    SYSTEMATIZATION_PROMPT,
+    SYSTEMATIZED_CONCEPTS_PROMPT,
+    SystematizedConcept,
+    format_questions_and_answers,
+)
 
 
-def test_main_render_inputs_when_empty() -> None:
+def make_inspect_ai_side_effect(api_key: str, return_value: Any) -> Callable[[Any, Any], None]:
+    side_effect_return = [
+        Mock(
+            status="success",
+            samples=[Mock(output=Mock(choices=[Mock(message=Mock(content=json.dumps(return_value)))]))],
+        ),
+    ]
+
+    def side_effect(*args: Any, **kwargs: Any) -> None:
+        assert os.environ["OPENAI_API_KEY"] == api_key
+        return side_effect_return
+
+    return side_effect
+
+
+@pytest.mark.integration_test
+@patch("aspis.inferencer.inspect_ai_eval")
+def test_main_render_inputs_when_empty(mock_inspect_ai_eval: Mock) -> None:
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
@@ -20,6 +49,7 @@ def test_main_render_inputs_when_empty() -> None:
     assert "risk_description" not in app.session_state
     assert "product_description" not in app.session_state
 
+    mock_inspect_ai_eval.assert_not_called()
     assert len(app.text_input) == 1
     assert app.text_input[0].label == "Enter your Open AI API key:"
     assert len(app.text_area) == 2
@@ -27,29 +57,46 @@ def test_main_render_inputs_when_empty() -> None:
     assert app.text_area[1].label == "What is the AI risk you want to create a measurement instrument for?"
 
 
-@patch("aspis.systematization.get_systematization_questions")
-def test_main_ask_for_questions_when_inputs_are_set(mock_get_systematization_questions: Mock) -> None:
-    app = AppTest.from_file("src/aspis/ui/main.py")
-
-    app.session_state.openai_api_key = "test api key"
-    app.session_state.risk_description = "test risk description"
-    app.session_state.product_description = "test product description"
-
-    app.run()
-
-    assert mock_get_systematization_questions.call_count == 1
-    call_args_list = mock_get_systematization_questions.call_args_list
-    assert call_args_list[0].kwargs["risk_description"] == "test risk description"
-    assert call_args_list[0].kwargs["product_description"] == "test product description"
-    assert call_args_list[0].kwargs["openai_api_key"] == "test api key"
-
-
-@patch("aspis.systematization.get_systematization_questions")
-def test_main_render_error_messages_when_inputs_are_not_set(mock_get_systematization_questions: Mock) -> None:
+@pytest.mark.integration_test
+@patch("aspis.inferencer.inspect_ai_eval")
+def test_main_ask_for_questions_when_inputs_are_set(mock_inspect_ai_eval: Mock) -> None:
+    test_questions = ["test question"]
     test_api_key = "test api key"
     test_risk_description = "test risk description"
     test_product_description = "test product description"
-    mock_get_systematization_questions.return_value = ["test question"]
+
+    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_api_key, test_questions)
+
+    app = AppTest.from_file("src/aspis/ui/main.py")
+
+    app.session_state.openai_api_key = test_api_key
+    app.session_state.risk_description = test_risk_description
+    app.session_state.product_description = test_product_description
+
+    app.run()
+
+    assert mock_inspect_ai_eval.call_count == 1
+    mock_inspect_ai_eval.assert_called_once_with(ANY, model=INFERENCE_MODEL, log_dir=ANY)
+    task = mock_inspect_ai_eval.call_args_list[0][0][0]
+    expected_sample = Sample(
+        input=SYSTEMATIZATION_PROMPT.format(
+            product_description=test_product_description,
+            risk_description=test_risk_description,
+            systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
+        ),
+        target="",
+    )
+    assert task.dataset[0] == expected_sample
+    assert os.environ.get("OPENAI_API_KEY", None) is None
+
+
+@pytest.mark.integration_test
+@patch("aspis.inferencer.inspect_ai_eval")
+def test_main_render_error_messages_when_inputs_are_not_set(mock_inspect_ai_eval: Mock) -> None:
+    test_api_key = "test api key"
+    test_risk_description = "test risk description"
+    test_product_description = "test product description"
+    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_api_key, ["test question"])
 
     # Empty API key
     app = AppTest.from_file("src/aspis/ui/main.py")
@@ -103,66 +150,96 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_get_systematiza
     assert app.session_state.openai_api_key == test_api_key
     assert app.session_state.risk_description == test_risk_description
     assert app.session_state.product_description == test_product_description
-    mock_get_systematization_questions.assert_called()
+    mock_inspect_ai_eval.assert_called()
 
 
-@patch("aspis.systematization.get_systematization_questions")
-def test_main_render_error_when_questions_are_none(mock_get_systematization_questions: Mock) -> None:
-    mock_get_systematization_questions.return_value = None
+@pytest.mark.integration_test
+@patch("aspis.inferencer.inspect_ai_eval")
+def test_main_render_error_when_questions_are_none(mock_inspect_ai_eval: Mock) -> None:
+    test_api_key = "test api key"
+    test_risk_description = "test risk description"
+    test_product_description = "test product description"
+    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_api_key, None)
 
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
-    app.text_input[0].set_value("test api key")
-    app.text_area[1].set_value("test risk description")
-    app.text_area[0].set_value("test product description")
+    app.text_input[0].set_value(test_api_key)
+    app.text_area[1].set_value(test_risk_description)
+    app.text_area[0].set_value(test_product_description)
 
     app.button[0].click()
     app.run()
 
-    mock_get_systematization_questions.assert_called_with(
-        product_description="test product description",
-        risk_description="test risk description",
-        openai_api_key="test api key",
+    assert mock_inspect_ai_eval.call_count == 1
+    mock_inspect_ai_eval.assert_called_once_with(ANY, model=INFERENCE_MODEL, log_dir=ANY)
+    task = mock_inspect_ai_eval.call_args_list[0][0][0]
+    expected_sample = Sample(
+        input=SYSTEMATIZATION_PROMPT.format(
+            product_description=test_product_description,
+            risk_description=test_risk_description,
+            systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
+        ),
+        target="",
     )
+    assert task.dataset[0] == expected_sample
+    assert os.environ.get("OPENAI_API_KEY", None) is None
     assert app.error[0].value == "Error generating questions. Please try again."
 
 
-@patch("aspis.systematization.get_systematization_questions")
-def test_main_render_questions_on_success(mock_get_systematization_questions: Mock) -> None:
+@pytest.mark.integration_test
+@patch("aspis.inferencer.inspect_ai_eval")
+def test_main_render_questions_on_success(mock_inspect_ai_eval: Mock) -> None:
     test_questions = ["test question 1", "test question 2"]
-    mock_get_systematization_questions.return_value = test_questions
+    test_api_key = "test api key"
+    test_product_description = "test product description"
+    test_risk_description = "test risk description"
+
+    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_api_key, test_questions)
 
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
-    app.text_input[0].set_value("test api key")
-    app.text_area[1].set_value("test risk description")
-    app.text_area[0].set_value("test product description")
+    app.text_input[0].set_value(test_api_key)
+    app.text_area[0].set_value(test_product_description)
+    app.text_area[1].set_value(test_risk_description)
 
     app.button[0].click()
     app.run()
 
-    mock_get_systematization_questions.assert_called_with(
-        product_description="test product description",
-        risk_description="test risk description",
-        openai_api_key="test api key",
+    assert mock_inspect_ai_eval.call_count == 1
+    mock_inspect_ai_eval.assert_called_once_with(ANY, model=INFERENCE_MODEL, log_dir=ANY)
+    task = mock_inspect_ai_eval.call_args_list[0][0][0]
+    expected_sample = Sample(
+        input=SYSTEMATIZATION_PROMPT.format(
+            product_description=test_product_description,
+            risk_description=test_risk_description,
+            systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
+        ),
+        target="",
     )
+    assert task.dataset[0] == expected_sample
+    assert os.environ.get("OPENAI_API_KEY", None) is None
+
     for i in range(len(test_questions)):
         assert app.text_area[i].label == rf"{i + 1}\. {test_questions[i]}"
 
 
-@patch("aspis.systematization.get_systematization_questions")
-def test_main_error_when_answers_are_empty(mock_get_systematization_questions: Mock) -> None:
+@pytest.mark.integration_test
+@patch("aspis.inferencer.inspect_ai_eval")
+def test_main_error_when_answers_are_empty(mock_inspect_ai_eval: Mock) -> None:
     test_questions = ["test question 1", "test question 2"]
-    mock_get_systematization_questions.return_value = test_questions
+    test_api_key = "test api key"
+    test_risk_description = "test risk description"
+    test_product_description = "test product description"
+    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_api_key, test_questions)
 
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
-    app.text_input[0].set_value("test api key")
-    app.text_area[1].set_value("test risk description")
-    app.text_area[0].set_value("test product description")
+    app.text_input[0].set_value(test_api_key)
+    app.text_area[1].set_value(test_risk_description)
+    app.text_area[0].set_value(test_product_description)
 
     app.button[0].click()
     app.run()
@@ -174,61 +251,59 @@ def test_main_error_when_answers_are_empty(mock_get_systematization_questions: M
     assert app.error[0].value == "Please answer question 1."
 
 
-@patch("aspis.systematization.get_systematization_questions")
-@patch("aspis.systematization.get_systematized_concepts")
-def test_main_saves_answers_on_success(
-    mock_get_systematized_concepts: Mock,
-    mock_get_systematization_questions: Mock,
-) -> None:
+@pytest.mark.integration_test
+@patch("aspis.inferencer.inspect_ai_eval")
+def test_main_saves_answers_on_success(mock_inspect_ai_eval: Mock) -> None:
+    test_api_key = "test api key"
+    test_risk_description = "test risk description"
+    test_product_description = "test product description"
     test_questions = ["test question 1", "test question 2"]
     test_answers = ["test answer to question 1", "test answer to question 2"]
-    mock_get_systematization_questions.return_value = test_questions
-    mock_get_systematized_concepts.return_value = []
 
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
-    app.text_input[0].set_value("test api key")
-    app.text_area[1].set_value("test risk description")
-    app.text_area[0].set_value("test product description")
+    app.text_input[0].set_value(test_api_key)
+    app.text_area[1].set_value(test_risk_description)
+    app.text_area[0].set_value(test_product_description)
+
+    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_api_key, test_questions)
 
     app.button[0].click()
     app.run()
 
     app.text_area[0].set_value(test_answers[0])
     app.text_area[1].set_value(test_answers[1])
+
+    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_api_key, test_answers)
+
     app.button[0].click()
     app.run()
 
     assert app.session_state.systematization_answers == test_answers
 
 
-@patch("aspis.systematization.get_systematization_questions")
-@patch("aspis.systematization.get_systematized_concepts")
-def test_main_render_results_when_answers_are_set(
-    mock_get_systematized_concepts: Mock,
-    mock_get_systematization_questions: Mock,
-) -> None:
+@pytest.mark.integration_test
+@patch("aspis.inferencer.inspect_ai_eval")
+def test_main_render_results_when_answers_are_set(mock_inspect_ai_eval: Mock) -> None:
     test_product_description = "test product description"
     test_risk_description = "test risk description"
     test_api_key = "test api key"
-    test_questions = ["test question 1", "test question 2"]
-    mock_get_systematization_questions.return_value = test_questions
 
+    test_questions = ["test question 1", "test question 2"]
     test_answers = ["test answer to question 1", "test answer to question 2"]
     test_systematized_concepts = [
-        SystematizedConcept(
-            title="test concept 1",
-            body="test body 1",
-            prompt_template="test prompt template 1",
-        ),
-        SystematizedConcept(
-            title="test concept 2",
-            body="test body 2",
-            prompt_template="test prompt template 2",
-        ),
+        {
+            "title": "test concept 1",
+            "body": "test body 1",
+            "prompt_template": "test prompt template 1",
+        },
+        {
+            "title": "test concept 2",
+            "body": "test body 2",
+            "prompt_template": "test prompt template 2",
+        },
     ]
-    mock_get_systematized_concepts.return_value = test_systematized_concepts
 
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
@@ -237,44 +312,63 @@ def test_main_render_results_when_answers_are_set(
     app.text_area[1].set_value(test_risk_description)
     app.text_area[0].set_value(test_product_description)
 
+    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_api_key, test_questions)
+
     app.button[0].click()
     app.run()
 
     app.text_area[0].set_value(test_answers[0])
     app.text_area[1].set_value(test_answers[1])
     app.button[0].click()
+
+    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_api_key, test_systematized_concepts)
+
     app.run()
 
-    mock_get_systematized_concepts.assert_called_with(
-        product_description=test_product_description,
-        risk_description=test_risk_description,
-        questions=test_questions,
-        answers=test_answers,
-        openai_api_key=test_api_key,
+    assert test_systematized_concepts[0]["title"] in app.markdown[4].value
+    assert app.markdown[5].value == test_systematized_concepts[0]["body"]
+    assert app.code[0].value == test_systematized_concepts[0]["prompt_template"]
+    assert test_systematized_concepts[1]["title"] in app.markdown[8].value
+    assert app.markdown[9].value == test_systematized_concepts[1]["body"]
+    assert app.code[1].value == test_systematized_concepts[1]["prompt_template"]
+
+    assert mock_inspect_ai_eval.call_count == 2
+    mock_inspect_ai_eval.assert_called_with(ANY, model=INFERENCE_MODEL, log_dir=ANY)
+    task = mock_inspect_ai_eval.call_args_list[0][0][0]
+    expected_sample = Sample(
+        input=SYSTEMATIZATION_PROMPT.format(
+            product_description=test_product_description,
+            risk_description=test_risk_description,
+            systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
+        ),
+        target="",
     )
+    assert task.dataset[0] == expected_sample
 
-    assert test_systematized_concepts[0].title in app.markdown[4].value
-    assert app.markdown[5].value == test_systematized_concepts[0].body
-    assert app.code[0].value == test_systematized_concepts[0].prompt_template
-    assert test_systematized_concepts[1].title in app.markdown[8].value
-    assert app.markdown[9].value == test_systematized_concepts[1].body
-    assert app.code[1].value == test_systematized_concepts[1].prompt_template
+    task = mock_inspect_ai_eval.call_args_list[1][0][0]
+    expected_sample = Sample(
+        input=SYSTEMATIZED_CONCEPTS_PROMPT.format(
+            product_description=test_product_description,
+            risk_description=test_risk_description,
+            systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
+            questions_and_answers=format_questions_and_answers(test_questions, test_answers),
+        ),
+        target="",
+    )
+    assert task.dataset[0] == expected_sample
+
+    assert os.environ.get("OPENAI_API_KEY", None) is None
 
 
-@patch("aspis.systematization.get_systematization_questions")
-@patch("aspis.systematization.get_systematized_concepts")
-def test_main_render_error_when_systematized_concepts_are_none(
-    mock_get_systematized_concepts: Mock,
-    mock_get_systematization_questions: Mock,
-) -> None:
+@pytest.mark.integration_test
+@patch("aspis.inferencer.inspect_ai_eval")
+def test_main_render_error_when_systematized_concepts_are_none(mock_inspect_ai_eval: Mock) -> None:
     test_product_description = "test product description"
     test_risk_description = "test risk description"
     test_api_key = "test api key"
-    test_questions = ["test question 1", "test question 2"]
-    mock_get_systematization_questions.return_value = test_questions
 
+    test_questions = ["test question 1", "test question 2"]
     test_answers = ["test answer to question 1", "test answer to question 2"]
-    mock_get_systematized_concepts.return_value = None
 
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
@@ -283,21 +377,44 @@ def test_main_render_error_when_systematized_concepts_are_none(
     app.text_area[1].set_value(test_risk_description)
     app.text_area[0].set_value(test_product_description)
 
+    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_api_key, test_questions)
+
     app.button[0].click()
     app.run()
 
     app.text_area[0].set_value(test_answers[0])
     app.text_area[1].set_value(test_answers[1])
+
+    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_api_key, None)
+
     app.button[0].click()
     app.run()
 
-    mock_get_systematized_concepts.assert_called_with(
-        product_description=test_product_description,
-        risk_description=test_risk_description,
-        questions=test_questions,
-        answers=test_answers,
-        openai_api_key=test_api_key,
+    assert mock_inspect_ai_eval.call_count == 2
+    mock_inspect_ai_eval.assert_called_with(ANY, model=INFERENCE_MODEL, log_dir=ANY)
+    task = mock_inspect_ai_eval.call_args_list[0][0][0]
+    expected_sample = Sample(
+        input=SYSTEMATIZATION_PROMPT.format(
+            product_description=test_product_description,
+            risk_description=test_risk_description,
+            systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
+        ),
+        target="",
     )
+    assert task.dataset[0] == expected_sample
+    task = mock_inspect_ai_eval.call_args_list[1][0][0]
+    expected_sample = Sample(
+        input=SYSTEMATIZED_CONCEPTS_PROMPT.format(
+            product_description=test_product_description,
+            risk_description=test_risk_description,
+            systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
+            questions_and_answers=format_questions_and_answers(test_questions, test_answers),
+        ),
+        target="",
+    )
+    assert task.dataset[0] == expected_sample
+
+    assert os.environ.get("OPENAI_API_KEY", None) is None
 
     assert app.error[0].value == "Error generating systematized concepts. Please try again."
 
