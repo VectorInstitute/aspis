@@ -6,6 +6,7 @@ from pathlib import Path
 import streamlit as st
 import yaml
 
+from aspis.inferencer import ModelInfo
 from aspis.systematization import (
     SystematizedConcept,
     get_systematization_questions,
@@ -22,7 +23,8 @@ def main() -> None:
     st.title("🛡️ Aspis")
 
     # Session state
-    openai_api_key = st.session_state.get("openai_api_key", "")
+    api_key = st.session_state.get("api_key", "")
+    model_info = st.session_state.get("model_info", ModelInfo.OPENAI_GPT_4O)
     risk_description = st.session_state.get("risk_description", "")
     product_description = st.session_state.get("product_description", "")
     follow_up_questions = st.session_state.get("follow_up_questions", None)
@@ -30,7 +32,7 @@ def main() -> None:
     systematized_concepts = st.session_state.get("systematized_concepts", None)
 
     # Rendering the landing page
-    if not openai_api_key or not product_description or not risk_description:
+    if not api_key or not product_description or not risk_description:
         render_landing_page()
         render_upload_button()
 
@@ -40,9 +42,10 @@ def main() -> None:
         if follow_up_questions is None or len(follow_up_questions) == 0:
             with st.spinner("Generating questions..."):
                 follow_up_questions = get_systematization_questions(
-                    openai_api_key=openai_api_key,
-                    risk_description=risk_description,
                     product_description=product_description,
+                    risk_description=risk_description,
+                    api_key=api_key,
+                    model_info=model_info,
                 )
 
         if follow_up_questions is None or len(follow_up_questions) == 0:
@@ -63,7 +66,8 @@ def main() -> None:
                     risk_description=risk_description,
                     questions=follow_up_questions,
                     answers=systematization_answers,
-                    openai_api_key=openai_api_key,
+                    api_key=api_key,
+                    model_info=model_info,
                 )
 
         if systematized_concepts is None:
@@ -91,6 +95,7 @@ def render_landing_page() -> None:
                 "Your product description is used to generate a measurement instrument for an AI risk. "
                 "Please describe your product in a comprehensive way."
             ),
+            key="product_description_input",
         )
 
         # Risk description text area
@@ -101,17 +106,36 @@ def render_landing_page() -> None:
                 "Your risk description is used to generate a risk assessment. Please describe the "
                 "AI risk your product is exposed to in order to generate a measurement instrument."
             ),
+            key="risk_description_input",
         )
 
-        # API key text input
-        current_openai_api_key = st.text_input(
-            label="Enter your Open AI API key:",
-            placeholder="Paste your API key here...",
-            help="Your API key is used to authenticate your requests to the Open AI API.",
-            type="password",
+        # Model inputs
+        st.markdown(
+            '<p style="font-size: 0.875rem; margin-bottom: 0.25rem;">Select the model to use and enter its API key:</p>',
+            unsafe_allow_html=True,
         )
+        column_model, column_api_key = st.columns([0.3, 0.7])
+        with column_model:
+            model_options = list(ModelInfo)
+            current_model_info = st.selectbox(
+                label="Select the model you want to use:",
+                label_visibility="collapsed",
+                options=model_options,
+                index=0,
+                key="model_info_input",
+            )
 
-        if st.form_submit_button("Generate Questions", type="primary"):
+        with column_api_key:
+            current_api_key = st.text_input(
+                label="Enter your API key:",
+                label_visibility="collapsed",
+                placeholder="Paste your API key here...",
+                help="Your API key is used to authenticate your requests to the model API.",
+                type="password",
+                key="api_key_input",
+            )
+
+        if st.form_submit_button("Generate Questions", type="primary", key="generate_questions_button"):
             if current_product_description.strip():
                 st.session_state.product_description = current_product_description
             else:
@@ -124,10 +148,16 @@ def render_landing_page() -> None:
                 st.error("Please enter a risk description before proceeding.")
                 return
 
-            if current_openai_api_key.strip():
-                st.session_state.openai_api_key = current_openai_api_key
+            if current_api_key.strip():
+                st.session_state.api_key = current_api_key
             else:
-                st.error("Please enter an Open AI API key before proceeding.")
+                st.error("Please enter an API key before proceeding.")
+                return
+
+            if current_model_info is not None:
+                st.session_state.model_info = current_model_info
+            else:
+                st.error("Please select a model before proceeding.")
                 return
 
             # If it gets here, all the inputs are set, so rerun the UI
@@ -148,9 +178,10 @@ def render_follow_up_questions(follow_up_questions: list[str]) -> None:
             current_answers[i] = st.text_area(
                 label=rf"{i + 1}\. {follow_up_questions[i]}",
                 placeholder="Enter your answer here...",
+                key=f"answer_input_{i + 1}",
             )
 
-        if st.form_submit_button("Submit Answers", type="primary"):
+        if st.form_submit_button("Submit Answers", type="primary", key="submit_answers_button"):
             for i in range(len(current_answers)):
                 if not current_answers[i].strip():
                     st.error(f"Please answer question {i + 1}.")
@@ -218,6 +249,7 @@ def render_upload_button() -> None:
         label="*.yaml file",
         type=["yaml", "yml"],
         help="Upload a previously saved YAML file to restore your results.",
+        key="upload_file_input",
     )
 
     if uploaded_file is None:

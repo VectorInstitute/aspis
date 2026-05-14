@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 
 from inspect_ai.dataset import Sample
 
-from aspis.inferencer import INFERENCE_MODEL
+from aspis.inferencer import ModelInfo
 from aspis.systematization import (
     SYSTEMATIZATION_PAPER_PATH,
     SYSTEMATIZATION_PROMPT,
@@ -31,11 +31,13 @@ def test_get_systematization_questions_success(mock_execute_samples: Mock) -> No
         test_product_description = "test product description"
         test_risk_description = "test risk description"
         test_openai_api_key = "test api key"
+        test_model_info = ModelInfo.OPENAI_GPT_4O
 
         questions = get_systematization_questions(
             product_description=test_product_description,
             risk_description=test_risk_description,
-            openai_api_key=test_openai_api_key,
+            api_key=test_openai_api_key,
+            model_info=test_model_info,
         )
 
         assert questions == ["test question 1", "test question 2"]
@@ -47,7 +49,7 @@ def test_get_systematization_questions_success(mock_execute_samples: Mock) -> No
                     target="",
                 )
             ],
-            INFERENCE_MODEL,
+            test_model_info,
             test_openai_api_key,
         )
 
@@ -71,11 +73,13 @@ def test_get_systematization_questions_failure_invalid_results(mock_execute_samp
         test_product_description = "test product description"
         test_risk_description = "test risk description"
         test_openai_api_key = "test api key"
+        test_model_info = ModelInfo.OPENAI_GPT_4O
 
         questions = get_systematization_questions(
             product_description=test_product_description,
             risk_description=test_risk_description,
-            openai_api_key=test_openai_api_key,
+            api_key=test_openai_api_key,
+            model_info=test_model_info,
         )
 
         assert questions is None
@@ -86,7 +90,7 @@ def test_get_systematization_questions_failure_invalid_results(mock_execute_samp
                     target="",
                 )
             ],
-            INFERENCE_MODEL,
+            test_model_info,
             test_openai_api_key,
         )
         mock_execute_samples.reset_mock()
@@ -119,13 +123,15 @@ def test_get_systematized_concepts_success(mock_execute_samples: Mock) -> None:
         test_questions = ["test question 1", "test question 2"]
         test_answers = ["test answer to question 1", "test answer to question 2"]
         test_openai_api_key = "test api key"
+        test_model_info = ModelInfo.OPENAI_GPT_4O
 
         systematized_concepts = get_systematized_concepts(
             product_description=test_product_description,
             risk_description=test_risk_description,
             questions=test_questions,
             answers=test_answers,
-            openai_api_key=test_openai_api_key,
+            api_key=test_openai_api_key,
+            model_info=test_model_info,
         )
 
         mock_execute_samples.assert_called_once_with(
@@ -140,7 +146,7 @@ def test_get_systematized_concepts_success(mock_execute_samples: Mock) -> None:
                     target="",
                 )
             ],
-            INFERENCE_MODEL,
+            test_model_info,
             test_openai_api_key,
         )
         assert systematized_concepts == [SystematizedConcept(**test_concept) for test_concept in test_concepts]
@@ -167,13 +173,15 @@ def test_get_systematized_concepts_failure_invalid_results(mock_execute_samples:
         test_questions = ["test question 1", "test question 2"]
         test_answers = ["test answer to question 1", "test answer to question 2"]
         test_openai_api_key = "test api key"
+        test_model_info = ModelInfo.OPENAI_GPT_4O
 
         systematized_concepts = get_systematized_concepts(
             product_description=test_product_description,
             risk_description=test_risk_description,
             questions=test_questions,
             answers=test_answers,
-            openai_api_key=test_openai_api_key,
+            api_key=test_openai_api_key,
+            model_info=test_model_info,
         )
 
         assert systematized_concepts is None
@@ -189,7 +197,7 @@ def test_get_systematized_concepts_failure_invalid_results(mock_execute_samples:
                     target="",
                 )
             ],
-            INFERENCE_MODEL,
+            test_model_info,
             test_openai_api_key,
         )
         mock_execute_samples.reset_mock()

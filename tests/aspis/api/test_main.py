@@ -11,7 +11,7 @@ from inspect_ai.scorer import model_graded_qa
 from inspect_ai.solver import generate
 
 from aspis.api.main import app
-from aspis.inferencer import INFERENCE_MODEL
+from aspis.inferencer import ModelInfo
 from aspis.utils import clean_model_output
 
 
@@ -28,7 +28,7 @@ def test_evaluate_from_file_success(mock_inspect_ai_eval: Mock) -> None:
 
     with TestClient(app) as client:
         test_text_to_evaluate = "Test text"
-        test_openai_api_key = "test api key"
+        test_api_key = "test api key"
         test_systematized_concepts = [
             {
                 "title": "Test concept 1",
@@ -53,7 +53,7 @@ def test_evaluate_from_file_success(mock_inspect_ai_eval: Mock) -> None:
             "/evaluate_from_file",
             data={
                 "text_to_evaluate": test_text_to_evaluate,
-                "api_key": test_openai_api_key,
+                "api_key": test_api_key,
             },
             files={
                 "systematized_concepts_file": (
@@ -77,7 +77,7 @@ def test_evaluate_from_file_success(mock_inspect_ai_eval: Mock) -> None:
             assert json_response[i]["result"] == expected_result
             assert json_response[i]["prompt"] == expected_prompts[i]
 
-        mock_inspect_ai_eval.assert_called_once_with(ANY, model=INFERENCE_MODEL, log_dir=ANY)
+        mock_inspect_ai_eval.assert_called_once_with(ANY, model=ModelInfo.OPENAI_GPT_4O.model_id, log_dir=ANY)
 
         inspect_call_args = mock_inspect_ai_eval.call_args_list[0][0][0]
         assert expected_prompts == [s.input for s in inspect_call_args.dataset.samples]

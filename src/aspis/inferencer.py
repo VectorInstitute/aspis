@@ -3,6 +3,7 @@
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
+from enum import Enum
 from tempfile import TemporaryDirectory
 from threading import Lock
 from typing import Any
@@ -18,16 +19,41 @@ from aspis.logging import get_logger_level, logger
 from aspis.utils import clean_model_output
 
 
-INFERENCE_MODEL = "openai/gpt-4o"
 _INSPECTAI_EVAL_LOCK = Lock()
 
 
-def execute_samples_against_model(samples: list[Sample], model_name: str, api_key: str) -> list[str]:
+class ModelInfo(Enum):
+    """Information about the supported models for inferencing."""
+
+    OPENAI_GPT_4O = ("openai/gpt-4o", "GPT-4o (OpenAI)", "OPENAI_API_KEY")
+
+    def __init__(self, model_id: str, friendly_name: str, api_key_name: str) -> None:
+        """Initialize the ModelInfo enum.
+
+        Args:
+            model_id: The ID of the model.
+            friendly_name: The friendly name of the model (displayed in the UI).
+            api_key_name: The name of the API key to use to connect to the model.
+        """
+        self.model_id = model_id
+        self.friendly_name = friendly_name
+        self.api_key_name = api_key_name
+
+    def __str__(self) -> str:
+        """Return the friendly name of the model.
+
+        Returns:
+            The friendly name of the model.
+        """
+        return self.friendly_name
+
+
+def execute_samples_against_model(samples: list[Sample], model_info: ModelInfo, api_key: str) -> list[str]:
     """Executes a list of samples against a model and returns the model outputs.
 
     Args:
         samples: The list of samples to execute against the model.
-        model_name: The name of the model to execute the samples against.
+        model_info: The information about the model to execute the samples against.
         api_key: The API key to use to execute the samples against the model.
 
     Returns:
@@ -36,7 +62,7 @@ def execute_samples_against_model(samples: list[Sample], model_name: str, api_ke
     # Executing this in a synchronous thread pool executor to make InspectAI
     # work well with streamlit's main thread
     with ThreadPoolExecutor() as executor:
-        result = executor.submit(run_eval, samples, model_name, api_key).result()
+        result = executor.submit(run_eval, samples, model_info, api_key).result()
 
     assert len(result) == 1, "Expected exactly one result"
 
@@ -59,7 +85,9 @@ def execute_samples_against_model(samples: list[Sample], model_name: str, api_ke
     return model_outputs
 
 
-def evaluate_text(input_text: str, prompt_templates: list[str], model_name: str, api_key: str) -> list[dict[str, Any]]:
+def evaluate_text(
+    input_text: str, prompt_templates: list[str], model_info: ModelInfo, api_key: str
+) -> list[dict[str, Any]]:
     """Evaluates input text using the model and the prompt.
 
     Will use `get_inference_prompt` function to replace placeholders in the prompt
@@ -68,7 +96,7 @@ def evaluate_text(input_text: str, prompt_templates: list[str], model_name: str,
     Args:
         input_text: The input text to infer.
         prompt_templates: The list of prompt templates to use to infer the input text.
-        model_name: The name of the model to use to infer the input text.
+        model_info: The information about the model to use to infer the input text.
         api_key: The API key to use to connect to the model.
 
     Returns:
@@ -79,7 +107,7 @@ def evaluate_text(input_text: str, prompt_templates: list[str], model_name: str,
         input_prompt = get_inference_prompt(input_text, prompt_template)
         samples.append(Sample(input=input_prompt, target=""))
 
-    model_outputs = execute_samples_against_model(samples, model_name, api_key)
+    model_outputs = execute_samples_against_model(samples, model_info, api_key)
 
     parsed_model_outputs = []
     for model_output in model_outputs:
@@ -96,12 +124,12 @@ def evaluate_text(input_text: str, prompt_templates: list[str], model_name: str,
     return parsed_model_outputs
 
 
-def run_eval(samples: list[Sample], model_name: str, api_key: str) -> list[EvalLog]:
+def run_eval(samples: list[Sample], model_info: ModelInfo, api_key: str) -> list[EvalLog]:
     """Helper function to run eval on a list of samples with a specific API key.
 
     Args:
         samples: The list of samples to run the eval on.
-        model_name: The name of the model to use for the evaluation.
+        model_info: The information about the model to use for the evaluation.
         api_key: The API key to use to run the eval.
 
     Returns:
@@ -114,10 +142,10 @@ def run_eval(samples: list[Sample], model_name: str, api_key: str) -> list[EvalL
     )
     with TemporaryDirectory() as temp_dir, _INSPECTAI_EVAL_LOCK:
         try:
-            os.environ["OPENAI_API_KEY"] = api_key
-            result = inspect_ai_eval(task, model=model_name, log_dir=temp_dir)
+            os.environ[model_info.api_key_name] = api_key
+            result = inspect_ai_eval(task, model=model_info.model_id, log_dir=temp_dir)
         finally:
-            os.environ.pop("OPENAI_API_KEY", None)
+            os.environ.pop(model_info.api_key_name, None)
             # Reset the logger level to the default level since
             # inspectai sets it to WARNING
             logger.setLevel(get_logger_level())
