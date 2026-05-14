@@ -7,7 +7,7 @@ from pathlib import Path
 from inspect_ai.dataset import Sample
 from langchain_core.prompts import ChatPromptTemplate
 
-from aspis.inferencer import INFERENCE_MODEL, execute_samples_against_model
+from aspis.inferencer import ModelInfo, execute_samples_against_model
 from aspis.logging import logger
 from aspis.utils import clean_model_output
 
@@ -84,14 +84,17 @@ Each prompt_template should be a complete, ready-to-use prompt string. IMPORTANT
 def get_systematization_questions(
     product_description: str,
     risk_description: str,
-    openai_api_key: str,
+    api_key: str,
+    model_info: ModelInfo,
 ) -> list[str] | None:
     """Get the systematization questions.
 
     Args:
         product_description: The description of the AI-powered product.
         risk_description: The description of the AI risk the product is exposed to.
-        openai_api_key: The OpenAI API key to use the LLM.
+        api_key: The API key to use the LLM.
+        model_info: The information about the model to use to generate the
+            systematization questions.
 
     Returns:
         The follow up systematization questions. Will be None if the model fails to
@@ -108,7 +111,7 @@ def get_systematization_questions(
         target="",
     )
 
-    model_outputs = execute_samples_against_model([sample], INFERENCE_MODEL, openai_api_key)
+    model_outputs = execute_samples_against_model([sample], model_info, api_key)
     assert len(model_outputs) == 1, "Expected exactly one model output"
     model_output = model_outputs[0]
 
@@ -146,7 +149,8 @@ def get_systematized_concepts(
     risk_description: str,
     questions: list[str],
     answers: list[str],
-    openai_api_key: str,
+    api_key: str,
+    model_info: ModelInfo,
 ) -> list[SystematizedConcept] | None:
     """Generate systematized concepts from the answers to follow-up questions.
 
@@ -155,7 +159,9 @@ def get_systematized_concepts(
         risk_description: The description of the AI risk the product is exposed to.
         questions: The follow-up questions that were asked.
         answers: The answers provided by the user.
-        openai_api_key: The OpenAI API key to use the LLM.
+        api_key: The API key to use the LLM.
+        model_info: The information about the model to use to generate the
+            systematized concepts.
 
     Returns:
         A list of systematized concepts with titles, bodies, and prompt templates.
@@ -169,7 +175,7 @@ def get_systematized_concepts(
         target="",
     )
 
-    model_outputs = execute_samples_against_model([sample], INFERENCE_MODEL, openai_api_key)
+    model_outputs = execute_samples_against_model([sample], model_info, api_key)
     assert len(model_outputs) == 1, "Expected exactly one model output"
     model_output = model_outputs[0]
 

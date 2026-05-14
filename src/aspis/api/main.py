@@ -7,7 +7,7 @@ import yaml
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from aspis.inferencer import INFERENCE_MODEL, evaluate_text, get_inference_prompt
+from aspis.inferencer import ModelInfo, evaluate_text, get_inference_prompt
 from aspis.logging import logger
 
 
@@ -35,7 +35,7 @@ async def evaluate(
     text_to_evaluate: str = Form(...),
     api_key: str = Form(...),
     systematized_concepts_file: UploadFile = File(...),  # noqa: B008 mypy's false positive on File(...)
-    model_name: str = Form(INFERENCE_MODEL),
+    model: ModelInfo = Form(ModelInfo.OPENAI_GPT_4O),  # noqa: B008 mypy's false positive on Form with default value
 ) -> list[EvaluationResponse]:
     """Evaluate an input text using systematized concepts from a file.
 
@@ -44,8 +44,12 @@ async def evaluate(
     Args:
         text_to_evaluate: The text to evaluate.
         api_key: The API key to use to connect to the model.
-        model_name: The name of the model to use for the evaluation. Optional,
-            defaults to INFERENCE_MODEL.
+        model: The model to use for this evaluation. Optional,
+            defaults to `openai/gpt-4o`. Allowed values are `openai/gpt-4o`,
+            `openai/gpt-5.5`, `openai/gpt-5.4-mini`, `google/gemini-3.1-pro-preview`,
+            `google/gemini-3-flash-preview`, `google/gemini-3.1-flash-lite`,
+            `anthropic/claude-opus-4-7`, `anthropic/claude-sonnet-4-6`
+            and `anthropic/claude-haiku-4-5-20251001`.
         systematized_concepts_file: The file containing the systematized concepts.
             It must be a `.yaml` file that contains a `systematized_concepts` key
             with a list of systematized concepts. Each systematized concept must
@@ -83,7 +87,7 @@ async def evaluate(
 
         logger.info("%s: Evaluating input text against all concepts...", datetime.datetime.now())
 
-        results = evaluate_text(text_to_evaluate, prompt_templates, model_name, api_key)
+        results = evaluate_text(text_to_evaluate, prompt_templates, model, api_key)
 
         evaluation_responses = []
         for i in range(len(systematized_concepts)):

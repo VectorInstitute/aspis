@@ -13,7 +13,7 @@ import yaml
 from inspect_ai.dataset import Sample
 from streamlit.testing.v1 import AppTest
 
-from aspis.inferencer import INFERENCE_MODEL
+from aspis.inferencer import ModelInfo
 from aspis.systematization import (
     SystematizedConcept,
     get_systematization_questions_prompt,
@@ -21,7 +21,7 @@ from aspis.systematization import (
 )
 
 
-def make_inspect_ai_side_effect(api_key: str, return_value: Any) -> Callable[[...], list[Mock]]:
+def make_inspect_ai_side_effect(model_info: ModelInfo, api_key: str, return_value: Any) -> Callable[[...], list[Mock]]:
     side_effect_return = [
         Mock(
             status="success",
@@ -30,7 +30,7 @@ def make_inspect_ai_side_effect(api_key: str, return_value: Any) -> Callable[[..
     ]
 
     def side_effect(*args: Any, **kwargs: Any) -> list[Mock]:
-        assert os.environ["OPENAI_API_KEY"] == api_key
+        assert os.environ[model_info.api_key_name] == api_key
         return side_effect_return
 
     return side_effect
@@ -43,16 +43,21 @@ def test_main_render_inputs_when_empty(mock_inspect_ai_eval: Mock) -> None:
     app.run()
 
     assert app.title[0].value == "🛡️ Aspis"
-    assert "openai_api_key" not in app.session_state
+    assert "api_key" not in app.session_state
+    assert "model_info" not in app.session_state
     assert "risk_description" not in app.session_state
     assert "product_description" not in app.session_state
 
     mock_inspect_ai_eval.assert_not_called()
-    assert len(app.text_input) == 1
-    assert app.text_input[0].label == "Enter your Open AI API key:"
-    assert len(app.text_area) == 2
-    assert app.text_area[0].label == "What is the description of your AI-powered product?"
-    assert app.text_area[1].label == "What is the AI risk you want to create a measurement instrument for?"
+    assert app.selectbox("model_info_input").label == "Select the model you want to use:"
+    assert app.selectbox("model_info_input").options == [model.friendly_name for model in list(ModelInfo)]
+    assert app.selectbox("model_info_input").index == 0
+    assert app.text_input("api_key_input").label == "Enter your API key:"
+    assert app.text_area("product_description_input").label == "What is the description of your AI-powered product?"
+    assert (
+        app.text_area("risk_description_input").label
+        == "What is the AI risk you want to create a measurement instrument for?"
+    )
 
 
 @pytest.mark.integration_test
@@ -60,28 +65,30 @@ def test_main_render_inputs_when_empty(mock_inspect_ai_eval: Mock) -> None:
 def test_main_ask_for_questions_when_inputs_are_set(mock_inspect_ai_eval: Mock) -> None:
     test_questions = ["test question"]
     test_api_key = "test api key"
+    test_model_info = ModelInfo.OPENAI_GPT_4O
     test_risk_description = "test risk description"
     test_product_description = "test product description"
 
-    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_api_key, test_questions)
+    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_model_info, test_api_key, test_questions)
 
     app = AppTest.from_file("src/aspis/ui/main.py")
 
-    app.session_state.openai_api_key = test_api_key
+    app.session_state.api_key = test_api_key
+    app.session_state.model_info = test_model_info
     app.session_state.risk_description = test_risk_description
     app.session_state.product_description = test_product_description
 
     app.run()
 
     assert mock_inspect_ai_eval.call_count == 1
-    mock_inspect_ai_eval.assert_called_once_with(ANY, model=INFERENCE_MODEL, log_dir=ANY)
+    mock_inspect_ai_eval.assert_called_once_with(ANY, model=test_model_info.model_id, log_dir=ANY)
     task = mock_inspect_ai_eval.call_args_list[0][0][0]
     expected_sample = Sample(
         input=get_systematization_questions_prompt(test_product_description, test_risk_description),
         target="",
     )
     assert task.dataset[0] == expected_sample
-    assert os.environ.get("OPENAI_API_KEY", None) is None
+    assert os.environ.get(test_model_info.api_key_name, None) is None
 
 
 @pytest.mark.integration_test
@@ -90,28 +97,31 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_inspect_ai_eval
     test_api_key = "test api key"
     test_risk_description = "test risk description"
     test_product_description = "test product description"
-    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_api_key, ["test question"])
+    test_model_info = ModelInfo.OPENAI_GPT_4O
+    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_model_info, test_api_key, ["test question"])
 
     # Empty API key
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
-    app.text_input[0].set_value("")
-    app.text_area[0].set_value(test_product_description)
-    app.text_area[1].set_value(test_risk_description)
+    app.selectbox("model_info_input").set_value(test_model_info)
+    app.text_input("api_key_input").set_value("")
+    app.text_area("product_description_input").set_value(test_product_description)
+    app.text_area("risk_description_input").set_value(test_risk_description)
 
-    app.button[0].click()
+    app.button("generate_questions_button").click()
     app.run()
 
-    assert app.error[0].value == "Please enter an Open AI API key before proceeding."
+    assert app.error[0].value == "Please enter an API key before proceeding."
 
     # Empty risk description
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
-    app.text_input[0].set_value(test_api_key)
-    app.text_area[1].set_value("")
-    app.text_area[0].set_value(test_product_description)
+    app.selectbox("model_info_input").set_value(test_model_info)
+    app.text_input("api_key_input").set_value(test_api_key)
+    app.text_area("risk_description_input").set_value("")
+    app.text_area("product_description_input").set_value(test_product_description)
 
-    app.button[0].click()
+    app.button("generate_questions_button").click()
     app.run()
 
     assert app.error[0].value == "Please enter a risk description before proceeding."
@@ -119,11 +129,11 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_inspect_ai_eval
     # Empty product description
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
-    app.text_input[0].set_value(test_api_key)
-    app.text_area[1].set_value(test_risk_description)
-    app.text_area[0].set_value("")
+    app.text_input("api_key_input").set_value(test_api_key)
+    app.text_area("risk_description_input").set_value(test_risk_description)
+    app.text_area("product_description_input").set_value("")
 
-    app.button[0].click()
+    app.button("generate_questions_button").click()
     app.run()
 
     assert app.error[0].value == "Please enter a product description before proceeding."
@@ -131,17 +141,19 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_inspect_ai_eval
     # All inputs are set
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
-    app.text_input[0].set_value(test_api_key)
-    app.text_area[1].set_value(test_risk_description)
-    app.text_area[0].set_value(test_product_description)
+    app.selectbox("model_info_input").set_value(test_model_info)
+    app.text_input("api_key_input").set_value(test_api_key)
+    app.text_area("risk_description_input").set_value(test_risk_description)
+    app.text_area("product_description_input").set_value(test_product_description)
 
     app.run()
 
-    app.button[0].click()
+    app.button("generate_questions_button").click()
     app.run()
 
     assert len(app.error) == 0
-    assert app.session_state.openai_api_key == test_api_key
+    assert app.session_state.api_key == test_api_key
+    assert app.session_state.model_info == test_model_info
     assert app.session_state.risk_description == test_risk_description
     assert app.session_state.product_description == test_product_description
     mock_inspect_ai_eval.assert_called()
@@ -153,27 +165,29 @@ def test_main_render_error_when_questions_are_none(mock_inspect_ai_eval: Mock) -
     test_api_key = "test api key"
     test_risk_description = "test risk description"
     test_product_description = "test product description"
-    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_api_key, None)
+    test_model_info = ModelInfo.OPENAI_GPT_4O
+    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_model_info, test_api_key, None)
 
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
-    app.text_input[0].set_value(test_api_key)
-    app.text_area[1].set_value(test_risk_description)
-    app.text_area[0].set_value(test_product_description)
+    app.selectbox("model_info_input").set_value(test_model_info)
+    app.text_input("api_key_input").set_value(test_api_key)
+    app.text_area("risk_description_input").set_value(test_risk_description)
+    app.text_area("product_description_input").set_value(test_product_description)
 
-    app.button[0].click()
+    app.button("generate_questions_button").click()
     app.run()
 
     assert mock_inspect_ai_eval.call_count == 1
-    mock_inspect_ai_eval.assert_called_once_with(ANY, model=INFERENCE_MODEL, log_dir=ANY)
+    mock_inspect_ai_eval.assert_called_once_with(ANY, model=test_model_info.model_id, log_dir=ANY)
     task = mock_inspect_ai_eval.call_args_list[0][0][0]
     expected_sample = Sample(
         input=get_systematization_questions_prompt(test_product_description, test_risk_description),
         target="",
     )
     assert task.dataset[0] == expected_sample
-    assert os.environ.get("OPENAI_API_KEY", None) is None
+    assert os.environ.get(test_model_info.api_key_name, None) is None
     assert app.error[0].value == "Error generating questions. Please try again."
 
 
@@ -182,33 +196,34 @@ def test_main_render_error_when_questions_are_none(mock_inspect_ai_eval: Mock) -
 def test_main_render_questions_on_success(mock_inspect_ai_eval: Mock) -> None:
     test_questions = ["test question 1", "test question 2"]
     test_api_key = "test api key"
+    test_model_info = ModelInfo.OPENAI_GPT_4O
     test_product_description = "test product description"
     test_risk_description = "test risk description"
 
-    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_api_key, test_questions)
+    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_model_info, test_api_key, test_questions)
 
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
-    app.text_input[0].set_value(test_api_key)
-    app.text_area[0].set_value(test_product_description)
-    app.text_area[1].set_value(test_risk_description)
+    app.selectbox("model_info_input").set_value(test_model_info)
+    app.text_input("api_key_input").set_value(test_api_key)
+    app.text_area("product_description_input").set_value(test_product_description)
+    app.text_area("risk_description_input").set_value(test_risk_description)
 
-    app.button[0].click()
+    app.button("generate_questions_button").click()
     app.run()
 
-    assert mock_inspect_ai_eval.call_count == 1
-    mock_inspect_ai_eval.assert_called_once_with(ANY, model=INFERENCE_MODEL, log_dir=ANY)
+    mock_inspect_ai_eval.assert_called_once_with(ANY, model=test_model_info.model_id, log_dir=ANY)
     task = mock_inspect_ai_eval.call_args_list[0][0][0]
     expected_sample = Sample(
         input=get_systematization_questions_prompt(test_product_description, test_risk_description),
         target="",
     )
     assert task.dataset[0] == expected_sample
-    assert os.environ.get("OPENAI_API_KEY", None) is None
+    assert os.environ.get(test_model_info.api_key_name, None) is None
 
     for i in range(len(test_questions)):
-        assert app.text_area[i].label == rf"{i + 1}\. {test_questions[i]}"
+        assert app.text_area(f"answer_input_{i + 1}").label == rf"{i + 1}\. {test_questions[i]}"
 
 
 @pytest.mark.integration_test
@@ -218,20 +233,20 @@ def test_main_error_when_answers_are_empty(mock_inspect_ai_eval: Mock) -> None:
     test_api_key = "test api key"
     test_risk_description = "test risk description"
     test_product_description = "test product description"
-    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_api_key, test_questions)
+    test_model_info = ModelInfo.OPENAI_GPT_4O
+    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_model_info, test_api_key, test_questions)
 
     app = AppTest.from_file("src/aspis/ui/main.py")
+
+    app.session_state.model_info = test_model_info
+    app.session_state.api_key = test_api_key
+    app.session_state.risk_description = test_risk_description
+    app.session_state.product_description = test_product_description
+
     app.run()
 
-    app.text_input[0].set_value(test_api_key)
-    app.text_area[1].set_value(test_risk_description)
-    app.text_area[0].set_value(test_product_description)
-
-    app.button[0].click()
-    app.run()
-
-    app.text_area[1].set_value("test answer to question 2")
-    app.button[0].click()
+    app.text_area("answer_input_2").set_value("test answer to question 2")
+    app.button("submit_answers_button").click()
     app.run()
 
     assert app.error[0].value == "Please answer question 1."
@@ -241,29 +256,28 @@ def test_main_error_when_answers_are_empty(mock_inspect_ai_eval: Mock) -> None:
 @patch("aspis.inferencer.inspect_ai_eval")
 def test_main_saves_answers_on_success(mock_inspect_ai_eval: Mock) -> None:
     test_api_key = "test api key"
+    test_model_info = ModelInfo.OPENAI_GPT_4O
     test_risk_description = "test risk description"
     test_product_description = "test product description"
     test_questions = ["test question 1", "test question 2"]
     test_answers = ["test answer to question 1", "test answer to question 2"]
 
     app = AppTest.from_file("src/aspis/ui/main.py")
+
+    app.session_state.model_info = test_model_info
+    app.session_state.api_key = test_api_key
+    app.session_state.risk_description = test_risk_description
+    app.session_state.product_description = test_product_description
+    app.session_state.follow_up_questions = test_questions
+
     app.run()
 
-    app.text_input[0].set_value(test_api_key)
-    app.text_area[1].set_value(test_risk_description)
-    app.text_area[0].set_value(test_product_description)
+    app.text_area("answer_input_1").set_value(test_answers[0])
+    app.text_area("answer_input_2").set_value(test_answers[1])
 
-    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_api_key, test_questions)
+    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_model_info, test_api_key, test_answers)
 
-    app.button[0].click()
-    app.run()
-
-    app.text_area[0].set_value(test_answers[0])
-    app.text_area[1].set_value(test_answers[1])
-
-    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_api_key, test_answers)
-
-    app.button[0].click()
+    app.button("submit_answers_button").click()
     app.run()
 
     assert app.session_state.systematization_answers == test_answers
@@ -275,6 +289,7 @@ def test_main_render_results_when_answers_are_set(mock_inspect_ai_eval: Mock) ->
     test_product_description = "test product description"
     test_risk_description = "test risk description"
     test_api_key = "test api key"
+    test_model_info = ModelInfo.OPENAI_GPT_4O
 
     test_questions = ["test question 1", "test question 2"]
     test_answers = ["test answer to question 1", "test answer to question 2"]
@@ -292,23 +307,23 @@ def test_main_render_results_when_answers_are_set(mock_inspect_ai_eval: Mock) ->
     ]
 
     app = AppTest.from_file("src/aspis/ui/main.py")
+
+    app.session_state.model_info = test_model_info
+    app.session_state.api_key = test_api_key
+    app.session_state.risk_description = test_risk_description
+    app.session_state.product_description = test_product_description
+    app.session_state.follow_up_questions = test_questions
+
     app.run()
 
-    app.text_input[0].set_value(test_api_key)
-    app.text_area[1].set_value(test_risk_description)
-    app.text_area[0].set_value(test_product_description)
+    app.text_area("answer_input_1").set_value(test_answers[0])
+    app.text_area("answer_input_2").set_value(test_answers[1])
 
-    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_api_key, test_questions)
+    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(
+        test_model_info, test_api_key, test_systematized_concepts
+    )
 
-    app.button[0].click()
-    app.run()
-
-    app.text_area[0].set_value(test_answers[0])
-    app.text_area[1].set_value(test_answers[1])
-    app.button[0].click()
-
-    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_api_key, test_systematized_concepts)
-
+    app.button("submit_answers_button").click()
     app.run()
 
     assert test_systematized_concepts[0]["title"] in app.markdown[4].value
@@ -318,16 +333,9 @@ def test_main_render_results_when_answers_are_set(mock_inspect_ai_eval: Mock) ->
     assert app.markdown[9].value == test_systematized_concepts[1]["body"]
     assert app.code[1].value == test_systematized_concepts[1]["prompt_template"]
 
-    assert mock_inspect_ai_eval.call_count == 2
-    mock_inspect_ai_eval.assert_called_with(ANY, model=INFERENCE_MODEL, log_dir=ANY)
+    assert mock_inspect_ai_eval.call_count == 1
+    mock_inspect_ai_eval.assert_called_with(ANY, model=test_model_info.model_id, log_dir=ANY)
     task = mock_inspect_ai_eval.call_args_list[0][0][0]
-    expected_sample = Sample(
-        input=get_systematization_questions_prompt(test_product_description, test_risk_description),
-        target="",
-    )
-    assert task.dataset[0] == expected_sample
-
-    task = mock_inspect_ai_eval.call_args_list[1][0][0]
     expected_sample = Sample(
         input=get_systematized_concepts_prompt(
             test_product_description,
@@ -339,7 +347,7 @@ def test_main_render_results_when_answers_are_set(mock_inspect_ai_eval: Mock) ->
     )
     assert task.dataset[0] == expected_sample
 
-    assert os.environ.get("OPENAI_API_KEY", None) is None
+    assert os.environ.get(test_model_info.api_key_name, None) is None
 
 
 @pytest.mark.integration_test
@@ -348,39 +356,31 @@ def test_main_render_error_when_systematized_concepts_are_none(mock_inspect_ai_e
     test_product_description = "test product description"
     test_risk_description = "test risk description"
     test_api_key = "test api key"
+    test_model_info = ModelInfo.OPENAI_GPT_4O
 
     test_questions = ["test question 1", "test question 2"]
     test_answers = ["test answer to question 1", "test answer to question 2"]
 
     app = AppTest.from_file("src/aspis/ui/main.py")
+
+    app.session_state.model_info = test_model_info
+    app.session_state.api_key = test_api_key
+    app.session_state.risk_description = test_risk_description
+    app.session_state.product_description = test_product_description
+    app.session_state.follow_up_questions = test_questions
+
     app.run()
 
-    app.text_input[0].set_value(test_api_key)
-    app.text_area[1].set_value(test_risk_description)
-    app.text_area[0].set_value(test_product_description)
+    app.text_area("answer_input_1").set_value(test_answers[0])
+    app.text_area("answer_input_2").set_value(test_answers[1])
 
-    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_api_key, test_questions)
+    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_model_info, test_api_key, None)
 
-    app.button[0].click()
+    app.button("submit_answers_button").click()
     app.run()
 
-    app.text_area[0].set_value(test_answers[0])
-    app.text_area[1].set_value(test_answers[1])
-
-    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_api_key, None)
-
-    app.button[0].click()
-    app.run()
-
-    assert mock_inspect_ai_eval.call_count == 2
-    mock_inspect_ai_eval.assert_called_with(ANY, model=INFERENCE_MODEL, log_dir=ANY)
+    mock_inspect_ai_eval.assert_called_once_with(ANY, model=test_model_info.model_id, log_dir=ANY)
     task = mock_inspect_ai_eval.call_args_list[0][0][0]
-    expected_sample = Sample(
-        input=get_systematization_questions_prompt(test_product_description, test_risk_description),
-        target="",
-    )
-    assert task.dataset[0] == expected_sample
-    task = mock_inspect_ai_eval.call_args_list[1][0][0]
     expected_sample = Sample(
         input=get_systematized_concepts_prompt(
             test_product_description,
@@ -392,7 +392,7 @@ def test_main_render_error_when_systematized_concepts_are_none(mock_inspect_ai_e
     )
     assert task.dataset[0] == expected_sample
 
-    assert os.environ.get("OPENAI_API_KEY", None) is None
+    assert os.environ.get(test_model_info.api_key_name, None) is None
 
     assert app.error[0].value == "Error generating systematized concepts. Please try again."
 
@@ -498,7 +498,8 @@ def test_main_upload_file_failure_bad_format(mock_file_uploader: Mock) -> None:
 def test_main_download_button(mock_download_button: Mock) -> None:
     app = AppTest.from_file("src/aspis/ui/main.py")
 
-    app.session_state.openai_api_key = "test api key"
+    app.session_state.api_key = "test api key"
+    app.session_state.model_info = ModelInfo.OPENAI_GPT_4O
     app.session_state.product_description = "test product description"
     app.session_state.risk_description = "test risk description"
     app.session_state.follow_up_questions = ["test question 1", "test question 2"]
