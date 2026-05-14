@@ -82,7 +82,7 @@ The API will be available at port `8000`.
 The main endpoint is `http://localhost:8000/evaluate_from_file`. It is a `POST` REST API
 endpoint that takes a form data with the following fields:
 - An string input text `text_to_evaluate`
-- An `openai_api_key` to access the models
+- An `api_key` to access the models
 - A file upload `systematized_concepts_file`, which can be downloaded after answering
 all the questions from the main app.
 - (Optional) The model to use for the evaluation. Default is `openai/gpt-4o`. Possible values
