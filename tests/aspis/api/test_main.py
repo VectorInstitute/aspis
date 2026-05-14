@@ -140,6 +140,73 @@ def test_evaluate_from_file_failure_bad_format() -> None:
 
 
 @pytest.mark.integration_test
+@patch("aspis.inferencer.inspect_ai_eval")
+def test_evaluate_from_file_with_model_success(mock_inspect_ai_eval: Mock) -> None:
+    test_systematized_concepts = [
+        {"title": "Test concept 1", "prompt_template": "Test template 1 <text_to_evaluate/> text"}
+    ]
+    file_content = yaml.safe_dump({"systematized_concepts": test_systematized_concepts}).encode("utf-8")
+
+    test_scores = [[{}, Mock(text='{"score": "test score 1"}')]]
+    mock_inspect_ai_eval.return_value = [
+        Mock(
+            status="success",
+            samples=[Mock(output=Mock(choices=[Mock(message=Mock(content=test_score))])) for test_score in test_scores],
+        ),
+    ]
+
+    test_model_id = ModelInfo.GOOGLE_GEMINI_3_1_PRO_PREVIEW.model_id
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/evaluate_from_file",
+            data={
+                "text_to_evaluate": "Test text",
+                "api_key": "test api key",
+                "model": test_model_id,
+            },
+            files={
+                "systematized_concepts_file": (
+                    "systematized_concepts.yaml",
+                    BytesIO(file_content),
+                    "application/yaml",
+                )
+            },
+        )
+
+        assert response.status_code == 200
+        mock_inspect_ai_eval.assert_called_once_with(ANY, model=test_model_id, log_dir=ANY)
+
+
+@pytest.mark.integration_test
+def test_evaluate_from_file_invalid_model() -> None:
+    test_systematized_concepts = [
+        {"title": "Test concept 1", "prompt_template": "Test template 1 <text_to_evaluate/> text"}
+    ]
+    file_content = yaml.safe_dump({"systematized_concepts": test_systematized_concepts}).encode("utf-8")
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/evaluate_from_file",
+            data={
+                "text_to_evaluate": "Test text",
+                "api_key": "test api key",
+                "model": "invalid model",
+            },
+            files={
+                "systematized_concepts_file": (
+                    "systematized_concepts.yaml",
+                    BytesIO(file_content),
+                    "application/yaml",
+                )
+            },
+        )
+
+        assert response.status_code == 422
+        assert "Input should be 'openai/" in response.json()["detail"][0]["msg"]
+
+
+@pytest.mark.integration_test
 def test_evaluate_from_file_failure_missing_fields() -> None:
     files_contents = [
         {"something else": "test"},

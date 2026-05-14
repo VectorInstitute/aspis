@@ -32,7 +32,7 @@ def main() -> None:
     systematized_concepts = st.session_state.get("systematized_concepts", None)
 
     # Rendering the landing page
-    if not api_key or not product_description or not risk_description:
+    if not model_info or not api_key or not product_description or not risk_description:
         render_landing_page()
         render_upload_button()
 

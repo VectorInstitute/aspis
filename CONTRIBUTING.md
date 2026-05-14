@@ -85,6 +85,10 @@ endpoint that takes a form data with the following fields:
 - An `openai_api_key` to access the models
 - A file upload `systematized_concepts_file`, which can be downloaded after answering
 all the questions from the main app.
+- (Optional) The model to use for the evaluation. Default is `openai/gpt-4o`. Possible values
+are `openai/gpt-4o`, `openai/gpt-5.5`, `openai/gpt-5.4-mini`, `google/gemini-3.1-pro-preview`,
+`google/gemini-3-flash-preview`, `google/gemini-3.1-flash-lite`, `anthropic/claude-opus-4-7`,
+`anthropic/claude-sonnet-4-6` and `anthropic/claude-haiku-4-5-20251001`.
 
 To see the full documentation for the available endpoints, you can access
 `http://localhost:8000/docs` on your browser.

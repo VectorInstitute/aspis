@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from tempfile import TemporaryDirectory
 from threading import Lock
-from typing import Any
+from typing import Any, Self
 
 from inspect_ai import Task
 from inspect_ai import eval as inspect_ai_eval
@@ -22,22 +22,51 @@ from aspis.utils import clean_model_output
 _INSPECTAI_EVAL_LOCK = Lock()
 
 
-class ModelInfo(Enum):
+class ModelInfo(str, Enum):
     """Information about the supported models for inferencing."""
 
-    OPENAI_GPT_4O = ("openai/gpt-4o", "GPT-4o (OpenAI)", "OPENAI_API_KEY")
+    model_id: str
+    friendly_name: str
+    api_key_name: str
 
-    def __init__(self, model_id: str, friendly_name: str, api_key_name: str) -> None:
-        """Initialize the ModelInfo enum.
+    OPENAI_GPT_4O = ("openai/gpt-4o", "GPT-4o (OpenAI)", "OPENAI_API_KEY")
+    OPENAI_GPT_5_5 = ("openai/gpt-5.5", "GPT-5.5 (OpenAI)", "OPENAI_API_KEY")
+    OPENAI_GPT_5_4_MINI = ("openai/gpt-5.4-mini", "GPT-5.4-mini (OpenAI)", "OPENAI_API_KEY")
+    GOOGLE_GEMINI_3_1_PRO_PREVIEW = (
+        "google/gemini-3.1-pro-preview",
+        "Gemini 3.1 Pro Preview (Google)",
+        "GOOGLE_API_KEY",
+    )
+    GOOGLE_GEMINI_3_FLASH_PREVIEW = (
+        "google/gemini-3-flash-preview",
+        "Gemini 3 Flash Preview (Google)",
+        "GOOGLE_API_KEY",
+    )
+    GOOGLE_GEMINI_3_1_FLASH_LITE = ("google/gemini-3.1-flash-lite", "Gemini 3.1 Flash Lite (Google)", "GOOGLE_API_KEY")
+    ANTHROPIC_CLAUDE_4_7_OPUS = ("anthropic/claude-opus-4-7", "Claude Opus 4.7 (Anthropic)", "ANTHROPIC_API_KEY")
+    ANTHROPIC_CLAUDE_4_6_SONNET = ("anthropic/claude-sonnet-4-6", "Claude Sonnet 4.6 (Anthropic)", "ANTHROPIC_API_KEY")
+    ANTHROPIC_CLAUDE_4_5_HAIKU = (
+        "anthropic/claude-haiku-4-5-20251001",
+        "Claude Haiku 4.5(Anthropic)",
+        "ANTHROPIC_API_KEY",
+    )
+
+    def __new__(cls, model_id: str, friendly_name: str, api_key_name: str) -> Self:
+        """Make a new ModelInfo enum object.
+
+        The value of the enum will be the model ID.
 
         Args:
             model_id: The ID of the model.
             friendly_name: The friendly name of the model (displayed in the UI).
             api_key_name: The name of the API key to use to connect to the model.
         """
-        self.model_id = model_id
-        self.friendly_name = friendly_name
-        self.api_key_name = api_key_name
+        obj = str.__new__(cls, model_id)
+        obj._value_ = model_id
+        obj.model_id = model_id
+        obj.friendly_name = friendly_name
+        obj.api_key_name = api_key_name
+        return obj
 
     def __str__(self) -> str:
         """Return the friendly name of the model.
@@ -59,6 +88,8 @@ def execute_samples_against_model(samples: list[Sample], model_info: ModelInfo, 
     Returns:
         The model outputs.
     """
+    logger.info(f"Making API call to model {model_info.model_id}...")
+
     # Executing this in a synchronous thread pool executor to make InspectAI
     # work well with streamlit's main thread
     with ThreadPoolExecutor() as executor:
@@ -78,7 +109,10 @@ def execute_samples_against_model(samples: list[Sample], model_info: ModelInfo, 
 
     model_outputs = []
     for sample in result[0].samples:
-        message_content = sample.output.choices[0].message.content
+        message_content = extract_string_output(
+            sample.output.choices[0].message.content,
+            model_info,
+        )
         assert isinstance(message_content, str), "Expected message content to be a string"
         model_outputs.append(message_content)
 
@@ -167,3 +201,31 @@ def get_inference_prompt(input_text: str, prompt: str) -> str:
         The inference prompt.
     """
     return prompt.replace("<text_to_evaluate/>", f"<text>{input_text}</text>")
+
+
+def extract_string_output(model_output: Any, model_info: ModelInfo) -> str:
+    """Extract the string output from the model output given the model info.
+
+    Args:
+        model_output: The model output.
+        model_info: The model info.
+
+    Returns:
+        The string output.
+    """
+    if model_info == ModelInfo.OPENAI_GPT_4O:
+        return model_output
+
+    if model_info in [
+        ModelInfo.OPENAI_GPT_5_5,
+        ModelInfo.GOOGLE_GEMINI_3_1_PRO_PREVIEW,
+        ModelInfo.GOOGLE_GEMINI_3_FLASH_PREVIEW,
+        ModelInfo.GOOGLE_GEMINI_3_1_FLASH_LITE,
+    ]:
+        # first output is the reasoning, second output is the answer
+        return model_output[1].text
+
+    if model_info == ModelInfo.OPENAI_GPT_5_4_MINI:
+        return model_output[0].text
+
+    raise ValueError(f"Model info {model_info} not supported")
