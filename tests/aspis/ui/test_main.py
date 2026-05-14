@@ -171,12 +171,12 @@ def test_main_render_error_when_questions_are_none(mock_inspect_ai_eval: Mock) -
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
-    app.selectbox[0].set_value(test_model_info)
-    app.text_input[0].set_value(test_api_key)
-    app.text_area[1].set_value(test_risk_description)
-    app.text_area[0].set_value(test_product_description)
+    app.selectbox("model_info_input").set_value(test_model_info)
+    app.text_input("api_key_input").set_value(test_api_key)
+    app.text_area("risk_description_input").set_value(test_risk_description)
+    app.text_area("product_description_input").set_value(test_product_description)
 
-    app.button[0].click()
+    app.button("generate_questions_button").click()
     app.run()
 
     assert mock_inspect_ai_eval.call_count == 1

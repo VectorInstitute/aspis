@@ -284,7 +284,7 @@ def render_upload_button() -> None:
     st.session_state.risk_description = saved_results["risk_description"]
     # Note: API key is set to a placeholder because it can't be None,
     # we're restoring saved results and don't need to make new API calls at this stage
-    st.session_state.openai_api_key = "placeholder-key"
+    st.session_state.api_key = "placeholder-key"
     st.session_state.follow_up_questions = saved_results["follow_up_questions"]
     st.session_state.systematization_answers = saved_results["systematization_answers"]
     st.session_state.systematized_concepts = [
