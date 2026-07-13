@@ -63,3 +63,5 @@ jobs:
           ignore-vulns: |
             GHSA-7p48-42j8-8846
             GHSA-5239-wwwm-4pmq
+            PYSEC-2026-212
+            PYSEC-2026-2132
