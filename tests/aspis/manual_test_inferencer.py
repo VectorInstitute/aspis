@@ -8,7 +8,7 @@ from aspis.systematization import SYSTEMATIZATION_PAPER_PATH, SYSTEMATIZATION_PR
 
 def run_inferencer_manual_test() -> None:
     """Run the inferencer manual test."""
-    model_info = ModelInfo.GOOGLE_GEMINI_3_1_FLASH_LITE
+    model_info = ModelInfo.GOOGLE_GEMINI_3_FLASH_PREVIEW
     api_key = os.getenv("ASPIS_API_KEY") or os.getenv("OPENAI_API_KEY")
     assert api_key is not None, "Set ASPIS_API_KEY or OPENAI_API_KEY before running this manual test"
 

@@ -1,7 +1,6 @@
 """Test for the API main module."""
 
 import json
-import os
 from io import BytesIO
 from unittest.mock import Mock, patch
 
@@ -86,7 +85,6 @@ def test_evaluate_from_file_success(mock_openai: Mock) -> None:
                 model=ModelInfo.OPENAI_GPT_4O.model_id,
                 messages=[{"role": "user", "content": expected_prompt}],
             )
-        assert os.environ.get(ModelInfo.OPENAI_GPT_4O.api_key_name) is None
 
 
 @pytest.mark.integration_test
@@ -190,7 +188,6 @@ def test_evaluate_from_file_with_model_success(mock_openai: Mock) -> None:
                 }
             ],
         )
-        assert os.environ.get(ModelInfo.GOOGLE_GEMINI_3_1_PRO_PREVIEW.api_key_name) is None
 
 
 @pytest.mark.integration_test
@@ -218,7 +215,7 @@ def test_evaluate_from_file_invalid_model() -> None:
         )
 
         assert response.status_code == 422
-        assert "Input should be 'openai/" in response.json()["detail"][0]["msg"]
+        assert "Input should be 'gpt-4o'" in response.json()["detail"][0]["msg"]
 
 
 @pytest.mark.integration_test

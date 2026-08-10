@@ -22,31 +22,16 @@ class ModelInfo(str, Enum):
 
     model_id: str
     friendly_name: str
-    api_key_name: str
 
-    OPENAI_GPT_4O = ("openai/gpt-4o", "GPT-4o (OpenAI)", "OPENAI_API_KEY")
-    OPENAI_GPT_5_5 = ("openai/gpt-5.5", "GPT-5.5 (OpenAI)", "OPENAI_API_KEY")
-    OPENAI_GPT_5_4_MINI = ("openai/gpt-5.4-mini", "GPT-5.4-mini (OpenAI)", "OPENAI_API_KEY")
-    GOOGLE_GEMINI_3_1_PRO_PREVIEW = (
-        "google/gemini-3.1-pro-preview",
-        "Gemini 3.1 Pro Preview (Google)",
-        "GOOGLE_API_KEY",
-    )
-    GOOGLE_GEMINI_3_FLASH_PREVIEW = (
-        "google/gemini-3-flash-preview",
-        "Gemini 3 Flash Preview (Google)",
-        "GOOGLE_API_KEY",
-    )
-    GOOGLE_GEMINI_3_1_FLASH_LITE = ("google/gemini-3.1-flash-lite", "Gemini 3.1 Flash Lite (Google)", "GOOGLE_API_KEY")
-    ANTHROPIC_CLAUDE_4_7_OPUS = ("anthropic/claude-opus-4-7", "Claude Opus 4.7 (Anthropic)", "ANTHROPIC_API_KEY")
-    ANTHROPIC_CLAUDE_4_6_SONNET = ("anthropic/claude-sonnet-4-6", "Claude Sonnet 4.6 (Anthropic)", "ANTHROPIC_API_KEY")
-    ANTHROPIC_CLAUDE_4_5_HAIKU = (
-        "anthropic/claude-haiku-4-5-20251001",
-        "Claude Haiku 4.5(Anthropic)",
-        "ANTHROPIC_API_KEY",
-    )
+    OPENAI_GPT_4O = ("gpt-4o", "GPT-4o (OpenAI)")
+    OPENAI_GPT_5_5 = ("gpt-5.5", "GPT-5.5 (OpenAI)")
+    OPENAI_GPT_5_4_MINI = ("gpt-5.4-mini", "GPT-5.4-mini (OpenAI)")
+    GOOGLE_GEMINI_3_1_PRO_PREVIEW = ("gemini-3.1-pro-preview", "Gemini 3.1 Pro Preview (Google)")
+    GOOGLE_GEMINI_3_FLASH_PREVIEW = ("gemini-3-flash-preview", "Gemini 3 Flash Preview (Google)")
+    ANTHROPIC_CLAUDE_4_7_OPUS = ("claude-opus-4-7", "Claude Opus 4.7 (Anthropic)")
+    ANTHROPIC_CLAUDE_4_6_SONNET = ("claude-sonnet-4-6", "Claude Sonnet 4.6 (Anthropic)")
 
-    def __new__(cls, model_id: str, friendly_name: str, api_key_name: str) -> Self:
+    def __new__(cls, model_id: str, friendly_name: str) -> Self:
         """Make a new ModelInfo enum object.
 
         The value of the enum will be the model ID.
@@ -54,13 +39,11 @@ class ModelInfo(str, Enum):
         Args:
             model_id: The ID of the model.
             friendly_name: The friendly name of the model (displayed in the UI).
-            api_key_name: The name of the API key to use to connect to the model.
         """
         obj = str.__new__(cls, model_id)
         obj._value_ = model_id
         obj.model_id = model_id
         obj.friendly_name = friendly_name
-        obj.api_key_name = api_key_name
         return obj
 
     def __str__(self) -> str:

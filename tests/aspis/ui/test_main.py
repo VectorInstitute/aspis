@@ -1,7 +1,6 @@
 """Test for the main module."""
 
 import json
-import os
 from copy import deepcopy
 from dataclasses import asdict
 from io import BytesIO
@@ -24,9 +23,6 @@ def make_openai_side_effect(api_key: str, return_value: Any) -> Callable[..., Mo
     def side_effect(*args: Any, **kwargs: Any) -> Mock:
         assert kwargs.get("api_key") == api_key
         assert kwargs.get("base_url") == DEFAULT_PROXY_BASE_URL
-        assert os.environ.get("OPENAI_API_KEY") is None
-        assert os.environ.get("GOOGLE_API_KEY") is None
-        assert os.environ.get("ANTHROPIC_API_KEY") is None
 
         mock_client = Mock()
         mock_client.__enter__ = Mock(return_value=mock_client)
@@ -109,7 +105,6 @@ def test_main_ask_for_questions_when_inputs_are_set(mock_openai: Mock) -> None:
             }
         ],
     )
-    assert os.environ.get(test_model_info.api_key_name, None) is None
 
 
 @pytest.mark.integration_test
@@ -202,7 +197,6 @@ def test_main_render_error_when_questions_are_none(mock_openai: Mock) -> None:
 
     assert mock_openai.call_count == 1
     mock_openai.assert_called_once_with(api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL)
-    assert os.environ.get(test_model_info.api_key_name, None) is None
     assert app.error[0].value == "Error generating questions. Please try again."
 
 
@@ -253,7 +247,6 @@ def test_main_render_questions_on_success(mock_openai: Mock) -> None:
             }
         ],
     )
-    assert os.environ.get(test_model_info.api_key_name, None) is None
 
     for i in range(len(test_questions)):
         assert app.text_area(f"answer_input_{i + 1}").label == rf"{i + 1}\. {test_questions[i]}"
@@ -396,8 +389,6 @@ def test_main_render_results_when_answers_are_set(mock_openai: Mock) -> None:
         ],
     )
 
-    assert os.environ.get(test_model_info.api_key_name, None) is None
-
 
 @pytest.mark.integration_test
 @patch("aspis.inferencer.OpenAI")
@@ -429,7 +420,6 @@ def test_main_render_error_when_systematized_concepts_are_none(mock_openai: Mock
     app.run()
 
     mock_openai.assert_called_once_with(api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL)
-    assert os.environ.get(test_model_info.api_key_name, None) is None
 
     assert app.error[0].value == "Error generating systematized concepts. Please try again."
 

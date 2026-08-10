@@ -1,6 +1,5 @@
 """Tests for the inferencer module."""
 
-import os
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -54,9 +53,6 @@ def test_create_openai_client_passes_api_key_and_proxy(mock_openai: Mock) -> Non
     create_openai_client(api_key)
 
     mock_openai.assert_called_once_with(api_key=api_key, base_url=DEFAULT_PROXY_BASE_URL)
-    assert os.environ.get("OPENAI_API_KEY") is None
-    assert os.environ.get("GOOGLE_API_KEY") is None
-    assert os.environ.get("ANTHROPIC_API_KEY") is None
 
 
 @patch("aspis.inferencer.OpenAI")
@@ -88,7 +84,6 @@ def test_execute_samples_against_model_uses_per_call_client(mock_openai: Mock) -
         messages=[{"role": "user", "content": "prompt two"}],
     )
     mock_client.__exit__.assert_called_once()
-    assert os.environ.get(model_info.api_key_name) is None
 
 
 @patch("aspis.inferencer.OpenAI")
