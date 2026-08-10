@@ -3,9 +3,7 @@
 import json
 from unittest.mock import Mock, patch
 
-from inspect_ai.dataset import Sample
-
-from aspis.inferencer import ModelInfo
+from aspis.inferencer import ModelInfo, Sample
 from aspis.systematization import (
     SYSTEMATIZATION_PAPER_PATH,
     SYSTEMATIZATION_PROMPT,
@@ -46,7 +44,6 @@ def test_get_systematization_questions_success(mock_execute_samples: Mock) -> No
             [
                 Sample(
                     input=get_systematization_questions_prompt(test_product_description, test_risk_description),
-                    target="",
                 )
             ],
             test_model_info,
@@ -87,7 +84,6 @@ def test_get_systematization_questions_failure_invalid_results(mock_execute_samp
             [
                 Sample(
                     input=get_systematization_questions_prompt(test_product_description, test_risk_description),
-                    target="",
                 )
             ],
             test_model_info,
@@ -143,7 +139,6 @@ def test_get_systematized_concepts_success(mock_execute_samples: Mock) -> None:
                         test_questions,
                         test_answers,
                     ),
-                    target="",
                 )
             ],
             test_model_info,
@@ -194,7 +189,6 @@ def test_get_systematized_concepts_failure_invalid_results(mock_execute_samples:
                         test_questions,
                         test_answers,
                     ),
-                    target="",
                 )
             ],
             test_model_info,

@@ -1,25 +1,28 @@
-"""Scorer for applications using Aspis as anLLM-as-a-judge."""
+"""Scorer for applications using Aspis as an LLM-as-a-judge."""
 
 import json
 import os
-from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from enum import Enum
-from tempfile import TemporaryDirectory
-from threading import Lock
 from typing import Any, Self
 
-from inspect_ai import Task
-from inspect_ai import eval as inspect_ai_eval
-from inspect_ai.dataset import MemoryDataset, Sample
-from inspect_ai.log import EvalLog
-from inspect_ai.scorer import model_graded_qa
-from inspect_ai.solver import generate
+from openai import OpenAI
 
-from aspis.logging import get_logger_level, logger
+from aspis.logging import logger
 from aspis.utils import clean_model_output
 
 
-_INSPECTAI_EVAL_LOCK = Lock()
+DEFAULT_PROXY_BASE_URL = "https://proxy.vectorinstitute.ai/v1"
+
+# Content part types that are reasoning / thinking (not the final answer).
+_REASONING_PART_TYPES = frozenset({"reasoning", "thinking", "reasoning_content"})
+
+
+@dataclass(frozen=True)
+class Sample:
+    """A single prompt sample to send to a model."""
+
+    input: str
 
 
 class ModelInfo(str, Enum):
@@ -77,6 +80,31 @@ class ModelInfo(str, Enum):
         return self.friendly_name
 
 
+def get_proxy_base_url() -> str:
+    """Return the OpenAI-compatible proxy base URL.
+
+    Returns:
+        The proxy base URL, overridable via ``ASPIS_OPENAI_BASE_URL``.
+    """
+    return os.environ.get("ASPIS_OPENAI_BASE_URL", DEFAULT_PROXY_BASE_URL)
+
+
+def create_openai_client(api_key: str) -> OpenAI:
+    """Create a new OpenAI client for a single request.
+
+    The API key is passed only to this client instance and is never written to
+    process environment variables, so concurrent callers cannot override each
+    other's credentials.
+
+    Args:
+        api_key: The caller-provided API key.
+
+    Returns:
+        A new ``OpenAI`` client pointed at the Vector proxy.
+    """
+    return OpenAI(api_key=api_key, base_url=get_proxy_base_url())
+
+
 def execute_samples_against_model(samples: list[Sample], model_info: ModelInfo, api_key: str) -> list[str]:
     """Executes a list of samples against a model and returns the model outputs.
 
@@ -90,31 +118,25 @@ def execute_samples_against_model(samples: list[Sample], model_info: ModelInfo, 
     """
     logger.info(f"Making API call to model {model_info.model_id}...")
 
-    # Executing this in a synchronous thread pool executor to make InspectAI
-    # work well with streamlit's main thread
-    with ThreadPoolExecutor() as executor:
-        result = executor.submit(run_eval, samples, model_info, api_key).result()
-
-    assert len(result) == 1, "Expected exactly one result"
-
-    if result[0].status != "success":
-        logger.error("Evaluation error: %s", result[0].error)
-        logger.debug("Full evaluation result: %s", result[0])
-        raise ValueError("Error during evaluation.")
-
-    assert result[0].samples is not None, "Expected samples to be not None"
-    assert len(result[0].samples) == len(samples), (
-        "Expected number of samples to be the same as the number of samples in the task"
-    )
-
     model_outputs = []
-    for sample in result[0].samples:
-        message_content = extract_string_output(
-            sample.output.choices[0].message.content,
-            model_info,
-        )
-        assert isinstance(message_content, str), "Expected message content to be a string"
-        model_outputs.append(message_content)
+    with create_openai_client(api_key) as client:
+        for sample in samples:
+            try:
+                response = client.chat.completions.create(
+                    model=model_info.model_id,
+                    messages=[{"role": "user", "content": sample.input}],
+                )
+            except Exception as e:
+                logger.exception("Error during model evaluation for model %s", model_info.model_id)
+                raise ValueError("Error during evaluation.") from e
+
+            if not response.choices:
+                raise ValueError("Expected at least one choice in the model response")
+
+            message_content = extract_string_output(response.choices[0].message.content)
+            if not isinstance(message_content, str):
+                raise ValueError("Expected message content to be a string")
+            model_outputs.append(message_content)
 
     return model_outputs
 
@@ -139,7 +161,7 @@ def evaluate_text(
     samples = []
     for prompt_template in prompt_templates:
         input_prompt = get_inference_prompt(input_text, prompt_template)
-        samples.append(Sample(input=input_prompt, target=""))
+        samples.append(Sample(input=input_prompt))
 
     model_outputs = execute_samples_against_model(samples, model_info, api_key)
 
@@ -158,35 +180,6 @@ def evaluate_text(
     return parsed_model_outputs
 
 
-def run_eval(samples: list[Sample], model_info: ModelInfo, api_key: str) -> list[EvalLog]:
-    """Helper function to run eval on a list of samples with a specific API key.
-
-    Args:
-        samples: The list of samples to run the eval on.
-        model_info: The information about the model to use for the evaluation.
-        api_key: The API key to use to run the eval.
-
-    Returns:
-        The result of the eval.
-    """
-    task = Task(
-        dataset=MemoryDataset(samples),
-        solver=[generate()],
-        scorer=model_graded_qa(),
-    )
-    with TemporaryDirectory() as temp_dir, _INSPECTAI_EVAL_LOCK:
-        try:
-            os.environ[model_info.api_key_name] = api_key
-            result = inspect_ai_eval(task, model=model_info.model_id, log_dir=temp_dir)
-        finally:
-            os.environ.pop(model_info.api_key_name, None)
-            # Reset the logger level to the default level since
-            # inspectai sets it to WARNING
-            logger.setLevel(get_logger_level())
-
-    return result
-
-
 def get_inference_prompt(input_text: str, prompt: str) -> str:
     """Get the inference prompt to be used as input to the model.
 
@@ -203,29 +196,51 @@ def get_inference_prompt(input_text: str, prompt: str) -> str:
     return prompt.replace("<text_to_evaluate/>", f"<text>{input_text}</text>")
 
 
-def extract_string_output(model_output: Any, model_info: ModelInfo) -> str:
-    """Extract the string output from the model output given the model info.
+def _part_type(part: Any) -> str | None:
+    """Return the content-part type string when available."""
+    if isinstance(part, dict):
+        part_type = part.get("type")
+        return str(part_type) if part_type is not None else None
+    part_type = getattr(part, "type", None)
+    return str(part_type) if part_type is not None else None
+
+
+def _part_text(part: Any) -> str | None:
+    """Return text from a content part, if present."""
+    if isinstance(part, str):
+        return part
+    if isinstance(part, dict):
+        text = part.get("text")
+        return str(text) if text is not None else None
+    text = getattr(part, "text", None)
+    return str(text) if text is not None else None
+
+
+def extract_string_output(model_output: Any) -> str:
+    """Extract the answer string from an OpenAI chat completion message content.
+
+    For multi-part content (e.g. reasoning + answer), skips known reasoning part
+    types and returns the final remaining text part so JSON parsing is not broken
+    by reasoning prefixes.
 
     Args:
-        model_output: The model output.
-        model_info: The model info.
+        model_output: The message content from the model response.
 
     Returns:
         The string output.
     """
-    if model_info == ModelInfo.OPENAI_GPT_4O:
+    if isinstance(model_output, str):
         return model_output
 
-    if model_info in [
-        ModelInfo.OPENAI_GPT_5_5,
-        ModelInfo.GOOGLE_GEMINI_3_1_PRO_PREVIEW,
-        ModelInfo.GOOGLE_GEMINI_3_FLASH_PREVIEW,
-        ModelInfo.GOOGLE_GEMINI_3_1_FLASH_LITE,
-    ]:
-        # first output is the reasoning, second output is the answer
-        return model_output[1].text
+    if isinstance(model_output, list):
+        answer_parts: list[str] = []
+        for part in model_output:
+            if _part_type(part) in _REASONING_PART_TYPES:
+                continue
+            text = _part_text(part)
+            if text is not None:
+                answer_parts.append(text)
+        if answer_parts:
+            return answer_parts[-1]
 
-    if model_info == ModelInfo.OPENAI_GPT_5_4_MINI:
-        return model_output[0].text
-
-    raise ValueError(f"Model info {model_info} not supported")
+    raise ValueError(f"Unsupported model output content type: {type(model_output)}")

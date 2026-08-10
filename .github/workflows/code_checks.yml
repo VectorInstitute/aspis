@@ -59,9 +59,7 @@ jobs:
           # has an issue with tests:
           # https://github.com/streamlit/streamlit/issues/12566
           # GHSA-5239-wwwm-4pmq: issue with pygments 2.19.12 that can't be upgraded because it breaks the docs build
-          # PYSEC-2026-2132: Click cannot be upgraded to 8.3.3 because of inspectai
           ignore-vulns: |
             GHSA-7p48-42j8-8846
             GHSA-5239-wwwm-4pmq
             PYSEC-2026-212
-            PYSEC-2026-2132

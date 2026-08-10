@@ -92,3 +92,9 @@ are `openai/gpt-4o`, `openai/gpt-5.5`, `openai/gpt-5.4-mini`, `google/gemini-3.1
 
 To see the full documentation for the available endpoints, you can access
 `http://localhost:8080/api/docs` on your browser.
+
+### 🔑 LLM API keys (Vector proxy)
+
+LLM calls are routed through Vector's OpenAI-compatible proxy at
+`https://proxy.vectorinstitute.ai/v1`. Pass a Vector proxy API key as `api_key` in the
+UI or API (not a provider-specific key written into process environment variables).

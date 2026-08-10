@@ -4,10 +4,9 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from inspect_ai.dataset import Sample
 from langchain_core.prompts import ChatPromptTemplate
 
-from aspis.inferencer import ModelInfo, execute_samples_against_model
+from aspis.inferencer import ModelInfo, Sample, execute_samples_against_model
 from aspis.logging import logger
 from aspis.utils import clean_model_output
 
@@ -108,7 +107,6 @@ def get_systematization_questions(
             risk_description=risk_description,
             systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
         ),
-        target="",
     )
 
     model_outputs = execute_samples_against_model([sample], model_info, api_key)
@@ -172,7 +170,6 @@ def get_systematized_concepts(
 
     sample = Sample(
         input=get_systematized_concepts_prompt(product_description, risk_description, questions, answers),
-        target="",
     )
 
     model_outputs = execute_samples_against_model([sample], model_info, api_key)
