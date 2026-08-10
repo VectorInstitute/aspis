@@ -32,15 +32,13 @@ class ModelInfo(str, Enum):
     ANTHROPIC_CLAUDE_4_6_SONNET = ("claude-sonnet-4-6", "Claude Sonnet 4.6 (Anthropic)")
 
     def __new__(cls, model_id: str, friendly_name: str) -> Self:
-        """
-        Create a model metadata enum member with its model identifier and display name.
-        
-        Parameters:
-            model_id (str): The model identifier.
-            friendly_name (str): The name displayed to users.
-        
-        Returns:
-            ModelInfo: The initialized enum member.
+        """Make a new ModelInfo enum object.
+
+        The value of the enum will be the model ID.
+
+        Args:
+            model_id: The ID of the model.
+            friendly_name: The friendly name of the model (displayed in the UI).
         """
         obj = str.__new__(cls, model_id)
         obj._value_ = model_id
@@ -83,19 +81,15 @@ def create_openai_client(api_key: str) -> OpenAI:
 
 
 def execute_samples_against_model(prompts: list[str], model_info: ModelInfo, api_key: str) -> list[str]:
-    """
-    Execute prompts against a model and collect its responses.
-    
+    """Executes a list of prompts against a model and returns the model outputs.
+
     Args:
-        prompts: The prompts to submit.
-        model_info: The model to use.
-        api_key: The API key for the model client.
-    
+        prompts: The list of prompt strings to execute against the model.
+        model_info: The information about the model to execute the prompts against.
+        api_key: The API key to use to execute the prompts against the model.
+
     Returns:
-        The model responses in prompt order.
-    
-    Raises:
-        ValueError: If a model request fails, returns no choices, or produces invalid content.
+        The model outputs.
     """
     logger.info(f"Making API call to model {model_info.model_id}...")
 
@@ -125,16 +119,19 @@ def execute_samples_against_model(prompts: list[str], model_info: ModelInfo, api
 def evaluate_text(
     input_text: str, prompt_templates: list[str], model_info: ModelInfo, api_key: str
 ) -> list[dict[str, Any]]:
-    """
-    Evaluate input text against prompt templates and parse each model response as JSON.
-    
-    Parameters:
-        input_text (str): Text substituted into each prompt template.
-        prompt_templates (list[str]): Templates used to generate evaluation prompts.
-    
+    """Evaluates input text using the model and the prompt.
+
+    Will use `get_inference_prompt` function to replace placeholders in the prompt
+    with the input text.
+
+    Args:
+        input_text: The input text to infer.
+        prompt_templates: The list of prompt templates to use to infer the input text.
+        model_info: The information about the model to use to infer the input text.
+        api_key: The API key to use to connect to the model.
+
     Returns:
-        list[dict[str, Any]]: Parsed JSON responses, or a dictionary containing
-            ``raw_output`` when a response cannot be parsed as JSON.
+        The inferred output from the model, parsed from a json to a dictionary.
     """
     prompts = [get_inference_prompt(input_text, prompt_template) for prompt_template in prompt_templates]
     model_outputs = execute_samples_against_model(prompts, model_info, api_key)
@@ -191,17 +188,17 @@ def _part_text(part: Any) -> str | None:
 
 
 def extract_string_output(model_output: Any) -> str:
-    """
-    Extract the final answer text from model response content.
-    
-    Parameters:
-        model_output (Any): A string or multipart response content.
-    
+    """Extract the answer string from an OpenAI chat completion message content.
+
+    For multi-part content (e.g. reasoning + answer), skips known reasoning part
+    types and returns the final remaining text part so JSON parsing is not broken
+    by reasoning prefixes.
+
+    Args:
+        model_output: The message content from the model response.
+
     Returns:
-        str: The answer text, using the final text part after excluding reasoning parts.
-    
-    Raises:
-        ValueError: If the content is unsupported or contains no text parts.
+        The string output.
     """
     if isinstance(model_output, str):
         return model_output

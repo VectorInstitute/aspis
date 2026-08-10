@@ -37,25 +37,32 @@ async def evaluate(
     systematized_concepts_file: UploadFile = File(...),  # noqa: B008 mypy's false positive on File(...)
     model: ModelInfo = Form(ModelInfo.OPENAI_GPT_4O),  # noqa: B008 mypy's false positive on Form with default value
 ) -> list[EvaluationResponse]:
-    """
-    Evaluate input text against systematized concepts defined in a YAML file.
-    
-    Parameters:
-        text_to_evaluate (str): The text to evaluate.
-        api_key (str): The API key used for model access.
-        systematized_concepts_file (UploadFile): A YAML file containing a
-            `systematized_concepts` list. Each concept must define `title` and
-            `prompt_template`.
-        model (ModelInfo): The model used for evaluation. Defaults to
-            `ModelInfo.OPENAI_GPT_4O`.
-    
+    """Evaluate an input text using systematized concepts from a file.
+
+    Returns one evaluation per systematized concept.
+
+    Args:
+        text_to_evaluate: The text to evaluate.
+        api_key: The API key to use to connect to the model.
+        model: The model to use for this evaluation. Optional,
+            defaults to `gpt-4o`. Allowed values are `gpt-4o`,
+            `gpt-5.5`, `gpt-5.4-mini`, `gemini-3.1-pro-preview`,
+            `gemini-3-flash-preview`, `claude-opus-4-7`, and
+            `claude-sonnet-4-6`.
+        systematized_concepts_file: The file containing the systematized concepts.
+            It must be a `.yaml` file that contains a `systematized_concepts` key
+            with a list of systematized concepts. Each systematized concept must
+            contain a `title` key and a `prompt_template` key. Example:
+            \n
+                systematized_concepts:
+                - title: "Systematized concept 1"
+                  prompt_template: "Prompt template 1"
+                - title: "Systematized concept 2"
+                  prompt_template: "Prompt template 2"
+
     Returns:
-        list[EvaluationResponse]: One evaluation response for each systematized
-            concept in the file.
-    
-    Raises:
-        HTTPException: With status 422 for invalid concept file contents or 500
-            for other evaluation failures.
+        A list of evaluations for the input text, one for each systematized concept
+            in the file.
     """
     try:
         file_content = await systematized_concepts_file.read()

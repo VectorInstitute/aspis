@@ -20,16 +20,6 @@ from aspis.systematization import (
 
 
 def make_openai_side_effect(api_key: str, return_value: Any) -> Callable[..., Mock]:
-    """
-    Create a mocked OpenAI client factory for tests.
-    
-    Parameters:
-        api_key (str): API key the mocked client must receive.
-        return_value (Any): Value encoded as the mock completion response.
-    
-    Returns:
-        Callable[..., Mock]: A side-effect function that returns a configured mock client.
-    """
     def side_effect(*args: Any, **kwargs: Any) -> Mock:
         assert kwargs.get("api_key") == api_key
         assert kwargs.get("base_url") == DEFAULT_PROXY_BASE_URL
@@ -345,16 +335,6 @@ def test_main_render_results_when_answers_are_set(mock_openai: Mock) -> None:
     created_clients: list[Mock] = []
 
     def side_effect(*args: Any, **kwargs: Any) -> Mock:
-        """
-        Creates a mock OpenAI client configured with the expected credentials and a serialized concept response.
-        
-        Parameters:
-            *args (Any): Positional arguments accepted by the mocked client factory.
-            **kwargs (Any): Keyword arguments containing the API key and proxy URL.
-        
-        Returns:
-            Mock: A context-manager-compatible mock client with a configured chat completion response.
-        """
         assert kwargs.get("api_key") == test_api_key
         assert kwargs.get("base_url") == DEFAULT_PROXY_BASE_URL
         mock_client = Mock()
