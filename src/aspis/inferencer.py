@@ -2,7 +2,6 @@
 
 import json
 import os
-from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Self
 
@@ -16,13 +15,6 @@ DEFAULT_PROXY_BASE_URL = "https://proxy.vectorinstitute.ai/v1"
 
 # Content part types that are reasoning / thinking (not the final answer).
 _REASONING_PART_TYPES = frozenset({"reasoning", "thinking", "reasoning_content"})
-
-
-@dataclass(frozen=True)
-class Sample:
-    """A single prompt sample to send to a model."""
-
-    input: str
 
 
 class ModelInfo(str, Enum):
@@ -105,13 +97,13 @@ def create_openai_client(api_key: str) -> OpenAI:
     return OpenAI(api_key=api_key, base_url=get_proxy_base_url())
 
 
-def execute_samples_against_model(samples: list[Sample], model_info: ModelInfo, api_key: str) -> list[str]:
-    """Executes a list of samples against a model and returns the model outputs.
+def execute_samples_against_model(prompts: list[str], model_info: ModelInfo, api_key: str) -> list[str]:
+    """Executes a list of prompts against a model and returns the model outputs.
 
     Args:
-        samples: The list of samples to execute against the model.
-        model_info: The information about the model to execute the samples against.
-        api_key: The API key to use to execute the samples against the model.
+        prompts: The list of prompt strings to execute against the model.
+        model_info: The information about the model to execute the prompts against.
+        api_key: The API key to use to execute the prompts against the model.
 
     Returns:
         The model outputs.
@@ -120,11 +112,11 @@ def execute_samples_against_model(samples: list[Sample], model_info: ModelInfo, 
 
     model_outputs = []
     with create_openai_client(api_key) as client:
-        for sample in samples:
+        for prompt in prompts:
             try:
                 response = client.chat.completions.create(
                     model=model_info.model_id,
-                    messages=[{"role": "user", "content": sample.input}],
+                    messages=[{"role": "user", "content": prompt}],
                 )
             except Exception as e:
                 logger.exception("Error during model evaluation for model %s", model_info.model_id)
@@ -158,12 +150,8 @@ def evaluate_text(
     Returns:
         The inferred output from the model, parsed from a json to a dictionary.
     """
-    samples = []
-    for prompt_template in prompt_templates:
-        input_prompt = get_inference_prompt(input_text, prompt_template)
-        samples.append(Sample(input=input_prompt))
-
-    model_outputs = execute_samples_against_model(samples, model_info, api_key)
+    prompts = [get_inference_prompt(input_text, prompt_template) for prompt_template in prompt_templates]
+    model_outputs = execute_samples_against_model(prompts, model_info, api_key)
 
     parsed_model_outputs = []
     for model_output in model_outputs:

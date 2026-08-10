@@ -9,7 +9,6 @@ import pytest
 from aspis.inferencer import (
     DEFAULT_PROXY_BASE_URL,
     ModelInfo,
-    Sample,
     create_openai_client,
     execute_samples_against_model,
     extract_string_output,
@@ -64,7 +63,7 @@ def test_create_openai_client_passes_api_key_and_proxy(mock_openai: Mock) -> Non
 def test_execute_samples_against_model_uses_per_call_client(mock_openai: Mock) -> None:
     api_key = "caller-api-key"
     model_info = ModelInfo.OPENAI_GPT_4O
-    samples = [Sample(input="prompt one"), Sample(input="prompt two")]
+    prompts = ["prompt one", "prompt two"]
 
     mock_client = Mock()
     mock_openai.return_value = mock_client
@@ -75,7 +74,7 @@ def test_execute_samples_against_model_uses_per_call_client(mock_openai: Mock) -
         Mock(choices=[Mock(message=Mock(content="output two"))]),
     ]
 
-    outputs = execute_samples_against_model(samples, model_info, api_key)
+    outputs = execute_samples_against_model(prompts, model_info, api_key)
 
     assert outputs == ["output one", "output two"]
     mock_openai.assert_called_once_with(api_key=api_key, base_url=DEFAULT_PROXY_BASE_URL)
@@ -101,7 +100,7 @@ def test_execute_samples_against_model_raises_on_api_error(mock_openai: Mock) ->
     mock_client.chat.completions.create.side_effect = RuntimeError("boom")
 
     with pytest.raises(ValueError, match="Error during evaluation") as exc_info:
-        execute_samples_against_model([Sample(input="prompt")], ModelInfo.OPENAI_GPT_4O, "key")
+        execute_samples_against_model(["prompt"], ModelInfo.OPENAI_GPT_4O, "key")
 
     assert isinstance(exc_info.value.__cause__, RuntimeError)
     mock_openai.assert_called_once_with(api_key="key", base_url=DEFAULT_PROXY_BASE_URL)
@@ -117,4 +116,4 @@ def test_execute_samples_against_model_raises_on_empty_choices(mock_openai: Mock
     mock_client.chat.completions.create.return_value = Mock(choices=[])
 
     with pytest.raises(ValueError, match="Expected at least one choice"):
-        execute_samples_against_model([Sample(input="prompt")], ModelInfo.OPENAI_GPT_4O, "key")
+        execute_samples_against_model(["prompt"], ModelInfo.OPENAI_GPT_4O, "key")
