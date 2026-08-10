@@ -14,6 +14,14 @@ from aspis.utils import clean_model_output
 
 
 def _mock_completion(content: str) -> Mock:
+    """Create a mocked completion response containing the supplied content.
+    
+    Parameters:
+    	content (str): The content returned by the mocked completion.
+    
+    Returns:
+    	Mock: A mock completion response with the content in its message.
+    """
     return Mock(choices=[Mock(message=Mock(content=content))])
 
 

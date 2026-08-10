@@ -86,18 +86,18 @@ def get_systematization_questions(
     api_key: str,
     model_info: ModelInfo,
 ) -> list[str] | None:
-    """Get the systematization questions.
-
+    """
+    Generate follow-up systematization questions for an AI-powered product and risk.
+    
     Args:
-        product_description: The description of the AI-powered product.
-        risk_description: The description of the AI risk the product is exposed to.
-        api_key: The API key to use the LLM.
-        model_info: The information about the model to use to generate the
-            systematization questions.
-
+        product_description: Description of the AI-powered product.
+        risk_description: Description of the AI risk affecting the product.
+        api_key: API key used to access the model.
+        model_info: Information about the model used to generate the questions.
+    
     Returns:
-        The follow up systematization questions. Will be None if the model fails to
-            return a valid JSON.
+        A list of systematization questions, or `None` if the model response is
+        invalid JSON or is not a list of strings.
     """
     logger.info("Querying model for systematization questions")
 
@@ -148,20 +148,17 @@ def get_systematized_concepts(
     api_key: str,
     model_info: ModelInfo,
 ) -> list[SystematizedConcept] | None:
-    """Generate systematized concepts from the answers to follow-up questions.
-
+    """Generate systematized concepts from answers to follow-up questions.
+    
     Args:
-        product_description: The description of the AI-powered product.
-        risk_description: The description of the AI risk the product is exposed to.
-        questions: The follow-up questions that were asked.
-        answers: The answers provided by the user.
-        api_key: The API key to use the LLM.
-        model_info: The information about the model to use to generate the
-            systematized concepts.
-
+        product_description: Description of the AI-powered product.
+        risk_description: Description of the AI risk affecting the product.
+        questions: Follow-up questions associated with the answers.
+        answers: User-provided answers to the follow-up questions.
+    
     Returns:
-        A list of systematized concepts with titles, bodies, and prompt templates.
-            Will be None if the model fails to return a valid JSON.
+        A list of systematized concepts, or None if the model response cannot be
+        parsed or does not have the required structure.
     """
     # Format questions and answers for the prompt
     logger.info("Querying model for systematized concepts")
