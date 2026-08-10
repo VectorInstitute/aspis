@@ -2,29 +2,30 @@
 
 import json
 from io import BytesIO
-from unittest.mock import ANY, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 import yaml
 from fastapi.testclient import TestClient
-from inspect_ai.scorer import model_graded_qa
-from inspect_ai.solver import generate
 
 from aspis.api.main import app
-from aspis.inferencer import ModelInfo
+from aspis.inferencer import DEFAULT_OPENAI_TIMEOUT_SECONDS, DEFAULT_PROXY_BASE_URL, ModelInfo
 from aspis.utils import clean_model_output
 
 
+def _mock_completion(content: str) -> Mock:
+    return Mock(choices=[Mock(message=Mock(content=content))])
+
+
 @pytest.mark.integration_test
-@patch("aspis.inferencer.inspect_ai_eval")
-def test_evaluate_from_file_success(mock_inspect_ai_eval: Mock) -> None:
+@patch("aspis.inferencer.OpenAI")
+def test_evaluate_from_file_success(mock_openai: Mock) -> None:
     test_scores = ['{"score": "test score 1"}', '```json{"score": "test score 2"}```', "not a valid json test score"]
-    mock_inspect_ai_eval.return_value = [
-        Mock(
-            status="success",
-            samples=[Mock(output=Mock(choices=[Mock(message=Mock(content=test_score))])) for test_score in test_scores],
-        ),
-    ]
+    mock_client = Mock()
+    mock_openai.return_value = mock_client
+    mock_client.__enter__ = Mock(return_value=mock_client)
+    mock_client.__exit__ = Mock(return_value=False)
+    mock_client.chat.completions.create.side_effect = [_mock_completion(score) for score in test_scores]
 
     with TestClient(app) as client:
         test_text_to_evaluate = "Test text"
@@ -77,20 +78,25 @@ def test_evaluate_from_file_success(mock_inspect_ai_eval: Mock) -> None:
             assert json_response[i]["result"] == expected_result
             assert json_response[i]["prompt"] == expected_prompts[i]
 
-        mock_inspect_ai_eval.assert_called_once_with(ANY, model=ModelInfo.OPENAI_GPT_4O.model_id, log_dir=ANY)
-
-        inspect_call_args = mock_inspect_ai_eval.call_args_list[0][0][0]
-        assert expected_prompts == [s.input for s in inspect_call_args.dataset.samples]
-        assert len(inspect_call_args.solver) == 1
-        assert inspect_call_args.solver[0].__qualname__ == generate().__qualname__
-        assert len(inspect_call_args.scorer) == 1
-        assert inspect_call_args.scorer[0].__qualname__ == model_graded_qa().__qualname__
+        mock_openai.assert_called_once_with(
+            api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
+        )
+        assert mock_client.chat.completions.create.call_count == len(test_systematized_concepts)
+        for expected_prompt in expected_prompts:
+            mock_client.chat.completions.create.assert_any_call(
+                model=ModelInfo.OPENAI_GPT_4O.model_id,
+                messages=[{"role": "user", "content": expected_prompt}],
+            )
 
 
 @pytest.mark.integration_test
-@patch("aspis.inferencer.inspect_ai_eval")
-def test_evaluate_from_file_failure_evaluation_error(mock_inspect_ai_eval: Mock) -> None:
-    mock_inspect_ai_eval.return_value = [Mock(status="error", error="Test error")]
+@patch("aspis.inferencer.OpenAI")
+def test_evaluate_from_file_failure_evaluation_error(mock_openai: Mock) -> None:
+    mock_client = Mock()
+    mock_openai.return_value = mock_client
+    mock_client.__enter__ = Mock(return_value=mock_client)
+    mock_client.__exit__ = Mock(return_value=False)
+    mock_client.chat.completions.create.side_effect = RuntimeError("Test error")
 
     with TestClient(app) as client:
         test_systematized_concepts = [
@@ -140,29 +146,28 @@ def test_evaluate_from_file_failure_bad_format() -> None:
 
 
 @pytest.mark.integration_test
-@patch("aspis.inferencer.inspect_ai_eval")
-def test_evaluate_from_file_with_model_success(mock_inspect_ai_eval: Mock) -> None:
+@patch("aspis.inferencer.OpenAI")
+def test_evaluate_from_file_with_model_success(mock_openai: Mock) -> None:
     test_systematized_concepts = [
         {"title": "Test concept 1", "prompt_template": "Test template 1 <text_to_evaluate/> text"}
     ]
     file_content = yaml.safe_dump({"systematized_concepts": test_systematized_concepts}).encode("utf-8")
 
-    test_scores = [[{}, Mock(text='{"score": "test score 1"}')]]
-    mock_inspect_ai_eval.return_value = [
-        Mock(
-            status="success",
-            samples=[Mock(output=Mock(choices=[Mock(message=Mock(content=test_score))])) for test_score in test_scores],
-        ),
-    ]
+    mock_client = Mock()
+    mock_openai.return_value = mock_client
+    mock_client.__enter__ = Mock(return_value=mock_client)
+    mock_client.__exit__ = Mock(return_value=False)
+    mock_client.chat.completions.create.return_value = _mock_completion('{"score": "test score 1"}')
 
     test_model_id = ModelInfo.GOOGLE_GEMINI_3_1_PRO_PREVIEW.model_id
+    test_api_key = "test api key"
 
     with TestClient(app) as client:
         response = client.post(
             "/evaluate_from_file",
             data={
                 "text_to_evaluate": "Test text",
-                "api_key": "test api key",
+                "api_key": test_api_key,
                 "model": test_model_id,
             },
             files={
@@ -175,7 +180,18 @@ def test_evaluate_from_file_with_model_success(mock_inspect_ai_eval: Mock) -> No
         )
 
         assert response.status_code == 200
-        mock_inspect_ai_eval.assert_called_once_with(ANY, model=test_model_id, log_dir=ANY)
+        mock_openai.assert_called_once_with(
+            api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
+        )
+        mock_client.chat.completions.create.assert_called_once_with(
+            model=test_model_id,
+            messages=[
+                {
+                    "role": "user",
+                    "content": "Test template 1 <text>Test text</text> text",
+                }
+            ],
+        )
 
 
 @pytest.mark.integration_test
@@ -203,7 +219,7 @@ def test_evaluate_from_file_invalid_model() -> None:
         )
 
         assert response.status_code == 422
-        assert "Input should be 'openai/" in response.json()["detail"][0]["msg"]
+        assert "Input should be 'gpt-4o'" in response.json()["detail"][0]["msg"]
 
 
 @pytest.mark.integration_test
@@ -237,30 +253,28 @@ def test_evaluate_from_file_failure_missing_fields() -> None:
 
 
 @pytest.mark.integration_test
-@patch("aspis.inferencer.inspect_ai_eval")
-def test_evaluate_from_file_failure_assertions(mock_inspect_ai_eval: Mock) -> None:
-    return_values_and_error_messages = [
-        ([], "Expected exactly one result"),
-        (["a", "b"], "Expected exactly one result"),
-        ([Mock(status="success", samples=None)], "Expected samples to be not None"),
+@patch("aspis.inferencer.OpenAI")
+def test_evaluate_from_file_failure_assertions(mock_openai: Mock) -> None:
+    return_values_and_expectations = [
         (
-            [Mock(status="success", samples=[])],
-            "Expected number of samples to be the same as the number of samples in the task",
+            Mock(choices=[]),
+            500,
+            "Evaluation failed: Expected at least one choice in the model response",
         ),
         (
-            [Mock(status="success", samples=["a", "b"])],
-            "Expected number of samples to be the same as the number of samples in the task",
-        ),
-        (
-            [Mock(status="success", samples=[Mock(output=Mock(choices=[Mock(message=Mock(content=123))]))])],
-            "Expected message content to be a string",
+            Mock(choices=[Mock(message=Mock(content=123))]),
+            500,
+            "Evaluation failed: Unsupported model output content type: <class 'int'>",
         ),
     ]
 
-    for return_value, error_message in return_values_and_error_messages:
-        mock_inspect_ai_eval.return_value = return_value
+    for return_value, expected_status, error_message in return_values_and_expectations:
+        mock_client = Mock()
+        mock_openai.return_value = mock_client
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_client.chat.completions.create.return_value = return_value
 
-        """Test the API main module."""
         with TestClient(app) as client:
             file_content = yaml.safe_dump(
                 {
@@ -288,7 +302,7 @@ def test_evaluate_from_file_failure_assertions(mock_inspect_ai_eval: Mock) -> No
                 },
             )
 
-            assert response.status_code == 422
+            assert response.status_code == expected_status
             assert response.json()["detail"] == error_message
 
-        mock_inspect_ai_eval.reset_mock()
+        mock_openai.reset_mock()

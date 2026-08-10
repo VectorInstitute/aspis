@@ -4,7 +4,6 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from inspect_ai.dataset import Sample
 from langchain_core.prompts import ChatPromptTemplate
 
 from aspis.inferencer import ModelInfo, execute_samples_against_model
@@ -102,16 +101,13 @@ def get_systematization_questions(
     """
     logger.info("Querying model for systematization questions")
 
-    sample = Sample(
-        input=SYSTEMATIZATION_PROMPT.format(
-            product_description=product_description,
-            risk_description=risk_description,
-            systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
-        ),
-        target="",
+    prompt = SYSTEMATIZATION_PROMPT.format(
+        product_description=product_description,
+        risk_description=risk_description,
+        systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
     )
 
-    model_outputs = execute_samples_against_model([sample], model_info, api_key)
+    model_outputs = execute_samples_against_model([prompt], model_info, api_key)
     assert len(model_outputs) == 1, "Expected exactly one model output"
     model_output = model_outputs[0]
 
@@ -170,12 +166,9 @@ def get_systematized_concepts(
     # Format questions and answers for the prompt
     logger.info("Querying model for systematized concepts")
 
-    sample = Sample(
-        input=get_systematized_concepts_prompt(product_description, risk_description, questions, answers),
-        target="",
-    )
+    prompt = get_systematized_concepts_prompt(product_description, risk_description, questions, answers)
 
-    model_outputs = execute_samples_against_model([sample], model_info, api_key)
+    model_outputs = execute_samples_against_model([prompt], model_info, api_key)
     assert len(model_outputs) == 1, "Expected exactly one model output"
     model_output = model_outputs[0]
 

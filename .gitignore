@@ -9,6 +9,9 @@ wheels/
 # Virtual environments
 .venv
 
+# Spec / task skill local state
+.specs_skill_state/
+
 # Lint & Test
 .mypy_cache/
 .pytest_cache/

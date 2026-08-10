@@ -1,7 +1,6 @@
 """Test for the main module."""
 
 import json
-import os
 from copy import deepcopy
 from dataclasses import asdict
 from io import BytesIO
@@ -10,10 +9,9 @@ from unittest.mock import ANY, Mock, patch
 
 import pytest
 import yaml
-from inspect_ai.dataset import Sample
 from streamlit.testing.v1 import AppTest
 
-from aspis.inferencer import ModelInfo
+from aspis.inferencer import DEFAULT_OPENAI_TIMEOUT_SECONDS, DEFAULT_PROXY_BASE_URL, ModelInfo
 from aspis.systematization import (
     SystematizedConcept,
     get_systematization_questions_prompt,
@@ -21,24 +19,26 @@ from aspis.systematization import (
 )
 
 
-def make_inspect_ai_side_effect(model_info: ModelInfo, api_key: str, return_value: Any) -> Callable[[...], list[Mock]]:
-    side_effect_return = [
-        Mock(
-            status="success",
-            samples=[Mock(output=Mock(choices=[Mock(message=Mock(content=json.dumps(return_value)))]))],
-        ),
-    ]
+def make_openai_side_effect(api_key: str, return_value: Any) -> Callable[..., Mock]:
+    def side_effect(*args: Any, **kwargs: Any) -> Mock:
+        assert kwargs.get("api_key") == api_key
+        assert kwargs.get("base_url") == DEFAULT_PROXY_BASE_URL
+        assert kwargs.get("timeout") == DEFAULT_OPENAI_TIMEOUT_SECONDS
 
-    def side_effect(*args: Any, **kwargs: Any) -> list[Mock]:
-        assert os.environ[model_info.api_key_name] == api_key
-        return side_effect_return
+        mock_client = Mock()
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_client.chat.completions.create.return_value = Mock(
+            choices=[Mock(message=Mock(content=json.dumps(return_value)))]
+        )
+        return mock_client
 
     return side_effect
 
 
 @pytest.mark.integration_test
-@patch("aspis.inferencer.inspect_ai_eval")
-def test_main_render_inputs_when_empty(mock_inspect_ai_eval: Mock) -> None:
+@patch("aspis.inferencer.OpenAI")
+def test_main_render_inputs_when_empty(mock_openai: Mock) -> None:
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
@@ -48,7 +48,7 @@ def test_main_render_inputs_when_empty(mock_inspect_ai_eval: Mock) -> None:
     assert "risk_description" not in app.session_state
     assert "product_description" not in app.session_state
 
-    mock_inspect_ai_eval.assert_not_called()
+    mock_openai.assert_not_called()
     assert app.selectbox("model_info_input").label == "Select the model you want to use:"
     assert app.selectbox("model_info_input").options == [model.friendly_name for model in list(ModelInfo)]
     assert app.selectbox("model_info_input").index == 0
@@ -61,15 +61,30 @@ def test_main_render_inputs_when_empty(mock_inspect_ai_eval: Mock) -> None:
 
 
 @pytest.mark.integration_test
-@patch("aspis.inferencer.inspect_ai_eval")
-def test_main_ask_for_questions_when_inputs_are_set(mock_inspect_ai_eval: Mock) -> None:
+@patch("aspis.inferencer.OpenAI")
+def test_main_ask_for_questions_when_inputs_are_set(mock_openai: Mock) -> None:
     test_questions = ["test question"]
     test_api_key = "test api key"
     test_model_info = ModelInfo.OPENAI_GPT_4O
     test_risk_description = "test risk description"
     test_product_description = "test product description"
 
-    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_model_info, test_api_key, test_questions)
+    created_clients: list[Mock] = []
+
+    def side_effect(*args: Any, **kwargs: Any) -> Mock:
+        assert kwargs.get("api_key") == test_api_key
+        assert kwargs.get("base_url") == DEFAULT_PROXY_BASE_URL
+        assert kwargs.get("timeout") == DEFAULT_OPENAI_TIMEOUT_SECONDS
+        mock_client = Mock()
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_client.chat.completions.create.return_value = Mock(
+            choices=[Mock(message=Mock(content=json.dumps(test_questions)))]
+        )
+        created_clients.append(mock_client)
+        return mock_client
+
+    mock_openai.side_effect = side_effect
 
     app = AppTest.from_file("src/aspis/ui/main.py")
 
@@ -80,25 +95,30 @@ def test_main_ask_for_questions_when_inputs_are_set(mock_inspect_ai_eval: Mock) 
 
     app.run()
 
-    assert mock_inspect_ai_eval.call_count == 1
-    mock_inspect_ai_eval.assert_called_once_with(ANY, model=test_model_info.model_id, log_dir=ANY)
-    task = mock_inspect_ai_eval.call_args_list[0][0][0]
-    expected_sample = Sample(
-        input=get_systematization_questions_prompt(test_product_description, test_risk_description),
-        target="",
+    assert mock_openai.call_count == 1
+    mock_openai.assert_called_once_with(
+        api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
     )
-    assert task.dataset[0] == expected_sample
-    assert os.environ.get(test_model_info.api_key_name, None) is None
+    assert len(created_clients) == 1
+    created_clients[0].chat.completions.create.assert_called_once_with(
+        model=test_model_info.model_id,
+        messages=[
+            {
+                "role": "user",
+                "content": get_systematization_questions_prompt(test_product_description, test_risk_description),
+            }
+        ],
+    )
 
 
 @pytest.mark.integration_test
-@patch("aspis.inferencer.inspect_ai_eval")
-def test_main_render_error_messages_when_inputs_are_not_set(mock_inspect_ai_eval: Mock) -> None:
+@patch("aspis.inferencer.OpenAI")
+def test_main_render_error_messages_when_inputs_are_not_set(mock_openai: Mock) -> None:
     test_api_key = "test api key"
     test_risk_description = "test risk description"
     test_product_description = "test product description"
     test_model_info = ModelInfo.OPENAI_GPT_4O
-    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_model_info, test_api_key, ["test question"])
+    mock_openai.side_effect = make_openai_side_effect(test_api_key, ["test question"])
 
     # Empty API key
     app = AppTest.from_file("src/aspis/ui/main.py")
@@ -156,17 +176,21 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_inspect_ai_eval
     assert app.session_state.model_info == test_model_info
     assert app.session_state.risk_description == test_risk_description
     assert app.session_state.product_description == test_product_description
-    mock_inspect_ai_eval.assert_called()
+    mock_openai.assert_called_once_with(
+        api_key=test_api_key,
+        base_url=DEFAULT_PROXY_BASE_URL,
+        timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
+    )
 
 
 @pytest.mark.integration_test
-@patch("aspis.inferencer.inspect_ai_eval")
-def test_main_render_error_when_questions_are_none(mock_inspect_ai_eval: Mock) -> None:
+@patch("aspis.inferencer.OpenAI")
+def test_main_render_error_when_questions_are_none(mock_openai: Mock) -> None:
     test_api_key = "test api key"
     test_risk_description = "test risk description"
     test_product_description = "test product description"
     test_model_info = ModelInfo.OPENAI_GPT_4O
-    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_model_info, test_api_key, None)
+    mock_openai.side_effect = make_openai_side_effect(test_api_key, None)
 
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
@@ -179,28 +203,38 @@ def test_main_render_error_when_questions_are_none(mock_inspect_ai_eval: Mock) -
     app.button("generate_questions_button").click()
     app.run()
 
-    assert mock_inspect_ai_eval.call_count == 1
-    mock_inspect_ai_eval.assert_called_once_with(ANY, model=test_model_info.model_id, log_dir=ANY)
-    task = mock_inspect_ai_eval.call_args_list[0][0][0]
-    expected_sample = Sample(
-        input=get_systematization_questions_prompt(test_product_description, test_risk_description),
-        target="",
+    assert mock_openai.call_count == 1
+    mock_openai.assert_called_once_with(
+        api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
     )
-    assert task.dataset[0] == expected_sample
-    assert os.environ.get(test_model_info.api_key_name, None) is None
     assert app.error[0].value == "Error generating questions. Please try again."
 
 
 @pytest.mark.integration_test
-@patch("aspis.inferencer.inspect_ai_eval")
-def test_main_render_questions_on_success(mock_inspect_ai_eval: Mock) -> None:
+@patch("aspis.inferencer.OpenAI")
+def test_main_render_questions_on_success(mock_openai: Mock) -> None:
     test_questions = ["test question 1", "test question 2"]
     test_api_key = "test api key"
     test_model_info = ModelInfo.OPENAI_GPT_4O
     test_product_description = "test product description"
     test_risk_description = "test risk description"
 
-    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_model_info, test_api_key, test_questions)
+    created_clients: list[Mock] = []
+
+    def side_effect(*args: Any, **kwargs: Any) -> Mock:
+        assert kwargs.get("api_key") == test_api_key
+        assert kwargs.get("base_url") == DEFAULT_PROXY_BASE_URL
+        assert kwargs.get("timeout") == DEFAULT_OPENAI_TIMEOUT_SECONDS
+        mock_client = Mock()
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_client.chat.completions.create.return_value = Mock(
+            choices=[Mock(message=Mock(content=json.dumps(test_questions)))]
+        )
+        created_clients.append(mock_client)
+        return mock_client
+
+    mock_openai.side_effect = side_effect
 
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
@@ -213,28 +247,33 @@ def test_main_render_questions_on_success(mock_inspect_ai_eval: Mock) -> None:
     app.button("generate_questions_button").click()
     app.run()
 
-    mock_inspect_ai_eval.assert_called_once_with(ANY, model=test_model_info.model_id, log_dir=ANY)
-    task = mock_inspect_ai_eval.call_args_list[0][0][0]
-    expected_sample = Sample(
-        input=get_systematization_questions_prompt(test_product_description, test_risk_description),
-        target="",
+    mock_openai.assert_called_once_with(
+        api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
     )
-    assert task.dataset[0] == expected_sample
-    assert os.environ.get(test_model_info.api_key_name, None) is None
+    assert len(created_clients) == 1
+    created_clients[0].chat.completions.create.assert_called_once_with(
+        model=test_model_info.model_id,
+        messages=[
+            {
+                "role": "user",
+                "content": get_systematization_questions_prompt(test_product_description, test_risk_description),
+            }
+        ],
+    )
 
     for i in range(len(test_questions)):
         assert app.text_area(f"answer_input_{i + 1}").label == rf"{i + 1}\. {test_questions[i]}"
 
 
 @pytest.mark.integration_test
-@patch("aspis.inferencer.inspect_ai_eval")
-def test_main_error_when_answers_are_empty(mock_inspect_ai_eval: Mock) -> None:
+@patch("aspis.inferencer.OpenAI")
+def test_main_error_when_answers_are_empty(mock_openai: Mock) -> None:
     test_questions = ["test question 1", "test question 2"]
     test_api_key = "test api key"
     test_risk_description = "test risk description"
     test_product_description = "test product description"
     test_model_info = ModelInfo.OPENAI_GPT_4O
-    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_model_info, test_api_key, test_questions)
+    mock_openai.side_effect = make_openai_side_effect(test_api_key, test_questions)
 
     app = AppTest.from_file("src/aspis/ui/main.py")
 
@@ -253,44 +292,12 @@ def test_main_error_when_answers_are_empty(mock_inspect_ai_eval: Mock) -> None:
 
 
 @pytest.mark.integration_test
-@patch("aspis.inferencer.inspect_ai_eval")
-def test_main_saves_answers_on_success(mock_inspect_ai_eval: Mock) -> None:
+@patch("aspis.inferencer.OpenAI")
+def test_main_saves_answers_on_success(mock_openai: Mock) -> None:
     test_api_key = "test api key"
     test_model_info = ModelInfo.OPENAI_GPT_4O
     test_risk_description = "test risk description"
     test_product_description = "test product description"
-    test_questions = ["test question 1", "test question 2"]
-    test_answers = ["test answer to question 1", "test answer to question 2"]
-
-    app = AppTest.from_file("src/aspis/ui/main.py")
-
-    app.session_state.model_info = test_model_info
-    app.session_state.api_key = test_api_key
-    app.session_state.risk_description = test_risk_description
-    app.session_state.product_description = test_product_description
-    app.session_state.follow_up_questions = test_questions
-
-    app.run()
-
-    app.text_area("answer_input_1").set_value(test_answers[0])
-    app.text_area("answer_input_2").set_value(test_answers[1])
-
-    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_model_info, test_api_key, test_answers)
-
-    app.button("submit_answers_button").click()
-    app.run()
-
-    assert app.session_state.systematization_answers == test_answers
-
-
-@pytest.mark.integration_test
-@patch("aspis.inferencer.inspect_ai_eval")
-def test_main_render_results_when_answers_are_set(mock_inspect_ai_eval: Mock) -> None:
-    test_product_description = "test product description"
-    test_risk_description = "test risk description"
-    test_api_key = "test api key"
-    test_model_info = ModelInfo.OPENAI_GPT_4O
-
     test_questions = ["test question 1", "test question 2"]
     test_answers = ["test answer to question 1", "test answer to question 2"]
     test_systematized_concepts = [
@@ -319,9 +326,66 @@ def test_main_render_results_when_answers_are_set(mock_inspect_ai_eval: Mock) ->
     app.text_area("answer_input_1").set_value(test_answers[0])
     app.text_area("answer_input_2").set_value(test_answers[1])
 
-    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(
-        test_model_info, test_api_key, test_systematized_concepts
-    )
+    mock_openai.side_effect = make_openai_side_effect(test_api_key, test_systematized_concepts)
+
+    app.button("submit_answers_button").click()
+    app.run()
+
+    assert app.session_state.systematization_answers == test_answers
+
+
+@pytest.mark.integration_test
+@patch("aspis.inferencer.OpenAI")
+def test_main_render_results_when_answers_are_set(mock_openai: Mock) -> None:
+    test_product_description = "test product description"
+    test_risk_description = "test risk description"
+    test_api_key = "test api key"
+    test_model_info = ModelInfo.OPENAI_GPT_4O
+
+    test_questions = ["test question 1", "test question 2"]
+    test_answers = ["test answer to question 1", "test answer to question 2"]
+    test_systematized_concepts = [
+        {
+            "title": "test concept 1",
+            "body": "test body 1",
+            "prompt_template": "test prompt template 1",
+        },
+        {
+            "title": "test concept 2",
+            "body": "test body 2",
+            "prompt_template": "test prompt template 2",
+        },
+    ]
+
+    created_clients: list[Mock] = []
+
+    def side_effect(*args: Any, **kwargs: Any) -> Mock:
+        assert kwargs.get("api_key") == test_api_key
+        assert kwargs.get("base_url") == DEFAULT_PROXY_BASE_URL
+        assert kwargs.get("timeout") == DEFAULT_OPENAI_TIMEOUT_SECONDS
+        mock_client = Mock()
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_client.chat.completions.create.return_value = Mock(
+            choices=[Mock(message=Mock(content=json.dumps(test_systematized_concepts)))]
+        )
+        created_clients.append(mock_client)
+        return mock_client
+
+    app = AppTest.from_file("src/aspis/ui/main.py")
+
+    app.session_state.model_info = test_model_info
+    app.session_state.api_key = test_api_key
+    app.session_state.risk_description = test_risk_description
+    app.session_state.product_description = test_product_description
+    app.session_state.follow_up_questions = test_questions
+
+    app.run()
+
+    app.text_area("answer_input_1").set_value(test_answers[0])
+    app.text_area("answer_input_2").set_value(test_answers[1])
+
+    mock_openai.side_effect = side_effect
 
     app.button("submit_answers_button").click()
     app.run()
@@ -333,26 +397,30 @@ def test_main_render_results_when_answers_are_set(mock_inspect_ai_eval: Mock) ->
     assert app.markdown[9].value == test_systematized_concepts[1]["body"]
     assert app.code[1].value == test_systematized_concepts[1]["prompt_template"]
 
-    assert mock_inspect_ai_eval.call_count == 1
-    mock_inspect_ai_eval.assert_called_with(ANY, model=test_model_info.model_id, log_dir=ANY)
-    task = mock_inspect_ai_eval.call_args_list[0][0][0]
-    expected_sample = Sample(
-        input=get_systematized_concepts_prompt(
-            test_product_description,
-            test_risk_description,
-            test_questions,
-            test_answers,
-        ),
-        target="",
+    assert mock_openai.call_count == 1
+    mock_openai.assert_called_with(
+        api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
     )
-    assert task.dataset[0] == expected_sample
-
-    assert os.environ.get(test_model_info.api_key_name, None) is None
+    assert len(created_clients) == 1
+    created_clients[0].chat.completions.create.assert_called_once_with(
+        model=test_model_info.model_id,
+        messages=[
+            {
+                "role": "user",
+                "content": get_systematized_concepts_prompt(
+                    test_product_description,
+                    test_risk_description,
+                    test_questions,
+                    test_answers,
+                ),
+            }
+        ],
+    )
 
 
 @pytest.mark.integration_test
-@patch("aspis.inferencer.inspect_ai_eval")
-def test_main_render_error_when_systematized_concepts_are_none(mock_inspect_ai_eval: Mock) -> None:
+@patch("aspis.inferencer.OpenAI")
+def test_main_render_error_when_systematized_concepts_are_none(mock_openai: Mock) -> None:
     test_product_description = "test product description"
     test_risk_description = "test risk description"
     test_api_key = "test api key"
@@ -374,25 +442,14 @@ def test_main_render_error_when_systematized_concepts_are_none(mock_inspect_ai_e
     app.text_area("answer_input_1").set_value(test_answers[0])
     app.text_area("answer_input_2").set_value(test_answers[1])
 
-    mock_inspect_ai_eval.side_effect = make_inspect_ai_side_effect(test_model_info, test_api_key, None)
+    mock_openai.side_effect = make_openai_side_effect(test_api_key, None)
 
     app.button("submit_answers_button").click()
     app.run()
 
-    mock_inspect_ai_eval.assert_called_once_with(ANY, model=test_model_info.model_id, log_dir=ANY)
-    task = mock_inspect_ai_eval.call_args_list[0][0][0]
-    expected_sample = Sample(
-        input=get_systematized_concepts_prompt(
-            test_product_description,
-            test_risk_description,
-            test_questions,
-            test_answers,
-        ),
-        target="",
+    mock_openai.assert_called_once_with(
+        api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
     )
-    assert task.dataset[0] == expected_sample
-
-    assert os.environ.get(test_model_info.api_key_name, None) is None
 
     assert app.error[0].value == "Error generating systematized concepts. Please try again."
 

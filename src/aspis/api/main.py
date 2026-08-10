@@ -1,5 +1,6 @@
 """Functions for the programmatic API of the Aspis application."""
 
+import asyncio
 import datetime
 from typing import Any
 
@@ -45,11 +46,10 @@ async def evaluate(
         text_to_evaluate: The text to evaluate.
         api_key: The API key to use to connect to the model.
         model: The model to use for this evaluation. Optional,
-            defaults to `openai/gpt-4o`. Allowed values are `openai/gpt-4o`,
-            `openai/gpt-5.5`, `openai/gpt-5.4-mini`, `google/gemini-3.1-pro-preview`,
-            `google/gemini-3-flash-preview`, `google/gemini-3.1-flash-lite`,
-            `anthropic/claude-opus-4-7`, `anthropic/claude-sonnet-4-6`
-            and `anthropic/claude-haiku-4-5-20251001`.
+            defaults to `gpt-4o`. Allowed values are `gpt-4o`,
+            `gpt-5.5`, `gpt-5.4-mini`, `gemini-3.1-pro-preview`,
+            `gemini-3-flash-preview`, `claude-opus-4-7`, and
+            `claude-sonnet-4-6`.
         systematized_concepts_file: The file containing the systematized concepts.
             It must be a `.yaml` file that contains a `systematized_concepts` key
             with a list of systematized concepts. Each systematized concept must
@@ -87,7 +87,8 @@ async def evaluate(
 
         logger.info("%s: Evaluating input text against all concepts...", datetime.datetime.now())
 
-        results = evaluate_text(text_to_evaluate, prompt_templates, model, api_key)
+        # Offload the synchronous OpenAI SDK call so the event loop stays responsive.
+        results = await asyncio.to_thread(evaluate_text, text_to_evaluate, prompt_templates, model, api_key)
 
         evaluation_responses = []
         for i in range(len(systematized_concepts)):

@@ -3,8 +3,6 @@
 import json
 from unittest.mock import Mock, patch
 
-from inspect_ai.dataset import Sample
-
 from aspis.inferencer import ModelInfo
 from aspis.systematization import (
     SYSTEMATIZATION_PAPER_PATH,
@@ -43,12 +41,7 @@ def test_get_systematization_questions_success(mock_execute_samples: Mock) -> No
         assert questions == ["test question 1", "test question 2"]
 
         mock_execute_samples.assert_called_once_with(
-            [
-                Sample(
-                    input=get_systematization_questions_prompt(test_product_description, test_risk_description),
-                    target="",
-                )
-            ],
+            [get_systematization_questions_prompt(test_product_description, test_risk_description)],
             test_model_info,
             test_openai_api_key,
         )
@@ -84,12 +77,7 @@ def test_get_systematization_questions_failure_invalid_results(mock_execute_samp
 
         assert questions is None
         mock_execute_samples.assert_called_once_with(
-            [
-                Sample(
-                    input=get_systematization_questions_prompt(test_product_description, test_risk_description),
-                    target="",
-                )
-            ],
+            [get_systematization_questions_prompt(test_product_description, test_risk_description)],
             test_model_info,
             test_openai_api_key,
         )
@@ -136,14 +124,11 @@ def test_get_systematized_concepts_success(mock_execute_samples: Mock) -> None:
 
         mock_execute_samples.assert_called_once_with(
             [
-                Sample(
-                    input=get_systematized_concepts_prompt(
-                        test_product_description,
-                        test_risk_description,
-                        test_questions,
-                        test_answers,
-                    ),
-                    target="",
+                get_systematized_concepts_prompt(
+                    test_product_description,
+                    test_risk_description,
+                    test_questions,
+                    test_answers,
                 )
             ],
             test_model_info,
@@ -187,14 +172,11 @@ def test_get_systematized_concepts_failure_invalid_results(mock_execute_samples:
         assert systematized_concepts is None
         mock_execute_samples.assert_called_once_with(
             [
-                Sample(
-                    input=get_systematized_concepts_prompt(
-                        test_product_description,
-                        test_risk_description,
-                        test_questions,
-                        test_answers,
-                    ),
-                    target="",
+                get_systematized_concepts_prompt(
+                    test_product_description,
+                    test_risk_description,
+                    test_questions,
+                    test_answers,
                 )
             ],
             test_model_info,
