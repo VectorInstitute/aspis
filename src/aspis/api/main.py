@@ -1,5 +1,6 @@
 """Functions for the programmatic API of the Aspis application."""
 
+import asyncio
 import datetime
 from typing import Any
 
@@ -86,7 +87,8 @@ async def evaluate(
 
         logger.info("%s: Evaluating input text against all concepts...", datetime.datetime.now())
 
-        results = evaluate_text(text_to_evaluate, prompt_templates, model, api_key)
+        # Offload the synchronous OpenAI SDK call so the event loop stays responsive.
+        results = await asyncio.to_thread(evaluate_text, text_to_evaluate, prompt_templates, model, api_key)
 
         evaluation_responses = []
         for i in range(len(systematized_concepts)):

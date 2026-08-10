@@ -9,7 +9,7 @@ import yaml
 from fastapi.testclient import TestClient
 
 from aspis.api.main import app
-from aspis.inferencer import DEFAULT_PROXY_BASE_URL, ModelInfo
+from aspis.inferencer import DEFAULT_OPENAI_TIMEOUT_SECONDS, DEFAULT_PROXY_BASE_URL, ModelInfo
 from aspis.utils import clean_model_output
 
 
@@ -78,7 +78,9 @@ def test_evaluate_from_file_success(mock_openai: Mock) -> None:
             assert json_response[i]["result"] == expected_result
             assert json_response[i]["prompt"] == expected_prompts[i]
 
-        mock_openai.assert_called_once_with(api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL)
+        mock_openai.assert_called_once_with(
+            api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
+        )
         assert mock_client.chat.completions.create.call_count == len(test_systematized_concepts)
         for expected_prompt in expected_prompts:
             mock_client.chat.completions.create.assert_any_call(
@@ -178,7 +180,9 @@ def test_evaluate_from_file_with_model_success(mock_openai: Mock) -> None:
         )
 
         assert response.status_code == 200
-        mock_openai.assert_called_once_with(api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL)
+        mock_openai.assert_called_once_with(
+            api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
+        )
         mock_client.chat.completions.create.assert_called_once_with(
             model=test_model_id,
             messages=[

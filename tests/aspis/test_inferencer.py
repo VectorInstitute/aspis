@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from aspis.inferencer import (
+    DEFAULT_OPENAI_TIMEOUT_SECONDS,
     DEFAULT_PROXY_BASE_URL,
     ModelInfo,
     create_openai_client,
@@ -52,7 +53,9 @@ def test_create_openai_client_passes_api_key_and_proxy(mock_openai: Mock) -> Non
     api_key = "test-api-key"
     create_openai_client(api_key)
 
-    mock_openai.assert_called_once_with(api_key=api_key, base_url=DEFAULT_PROXY_BASE_URL)
+    mock_openai.assert_called_once_with(
+        api_key=api_key, base_url=DEFAULT_PROXY_BASE_URL, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
+    )
 
 
 @patch("aspis.inferencer.OpenAI")
@@ -73,7 +76,9 @@ def test_execute_samples_against_model_uses_per_call_client(mock_openai: Mock) -
     outputs = execute_samples_against_model(prompts, model_info, api_key)
 
     assert outputs == ["output one", "output two"]
-    mock_openai.assert_called_once_with(api_key=api_key, base_url=DEFAULT_PROXY_BASE_URL)
+    mock_openai.assert_called_once_with(
+        api_key=api_key, base_url=DEFAULT_PROXY_BASE_URL, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
+    )
     assert mock_client.chat.completions.create.call_count == 2
     mock_client.chat.completions.create.assert_any_call(
         model=model_info.model_id,
@@ -98,7 +103,9 @@ def test_execute_samples_against_model_raises_on_api_error(mock_openai: Mock) ->
         execute_samples_against_model(["prompt"], ModelInfo.OPENAI_GPT_4O, "key")
 
     assert isinstance(exc_info.value.__cause__, RuntimeError)
-    mock_openai.assert_called_once_with(api_key="key", base_url=DEFAULT_PROXY_BASE_URL)
+    mock_openai.assert_called_once_with(
+        api_key="key", base_url=DEFAULT_PROXY_BASE_URL, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
+    )
     mock_client.__exit__.assert_called_once()
 
 

@@ -28,7 +28,7 @@ Replace InspectAI-based LLM calls with the official OpenAI SDK, routed through `
   - `OpenAI(api_key=<caller-provided key>, base_url="https://proxy.vectorinstitute.ai/v1")`
   - Never set `os.environ` for keys.
 - Replace InspectAI `Task` / `eval` / `generate` / `model_graded_qa` with `client.chat.completions.create(...)`.
-- Replace InspectAI `Sample` with a small local type (e.g. dataclass with `input`).
+- Replace InspectAI `Sample` inputs with prompt strings.
 - Keep `ModelInfo` and multi-provider model IDs; send those model IDs to the proxy.
 - Adapt `extract_string_output` to OpenAI response content shapes as needed.
 - Drop `ThreadPoolExecutor` if direct sync OpenAI calls are safe with Streamlit.

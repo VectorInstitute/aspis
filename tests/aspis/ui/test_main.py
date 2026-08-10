@@ -11,7 +11,7 @@ import pytest
 import yaml
 from streamlit.testing.v1 import AppTest
 
-from aspis.inferencer import DEFAULT_PROXY_BASE_URL, ModelInfo
+from aspis.inferencer import DEFAULT_OPENAI_TIMEOUT_SECONDS, DEFAULT_PROXY_BASE_URL, ModelInfo
 from aspis.systematization import (
     SystematizedConcept,
     get_systematization_questions_prompt,
@@ -23,6 +23,7 @@ def make_openai_side_effect(api_key: str, return_value: Any) -> Callable[..., Mo
     def side_effect(*args: Any, **kwargs: Any) -> Mock:
         assert kwargs.get("api_key") == api_key
         assert kwargs.get("base_url") == DEFAULT_PROXY_BASE_URL
+        assert kwargs.get("timeout") == DEFAULT_OPENAI_TIMEOUT_SECONDS
 
         mock_client = Mock()
         mock_client.__enter__ = Mock(return_value=mock_client)
@@ -73,6 +74,7 @@ def test_main_ask_for_questions_when_inputs_are_set(mock_openai: Mock) -> None:
     def side_effect(*args: Any, **kwargs: Any) -> Mock:
         assert kwargs.get("api_key") == test_api_key
         assert kwargs.get("base_url") == DEFAULT_PROXY_BASE_URL
+        assert kwargs.get("timeout") == DEFAULT_OPENAI_TIMEOUT_SECONDS
         mock_client = Mock()
         mock_client.__enter__ = Mock(return_value=mock_client)
         mock_client.__exit__ = Mock(return_value=False)
@@ -94,7 +96,9 @@ def test_main_ask_for_questions_when_inputs_are_set(mock_openai: Mock) -> None:
     app.run()
 
     assert mock_openai.call_count == 1
-    mock_openai.assert_called_once_with(api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL)
+    mock_openai.assert_called_once_with(
+        api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
+    )
     assert len(created_clients) == 1
     created_clients[0].chat.completions.create.assert_called_once_with(
         model=test_model_info.model_id,
@@ -172,7 +176,11 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_openai: Mock) -
     assert app.session_state.model_info == test_model_info
     assert app.session_state.risk_description == test_risk_description
     assert app.session_state.product_description == test_product_description
-    mock_openai.assert_called()
+    mock_openai.assert_called_once_with(
+        api_key=test_api_key,
+        base_url=DEFAULT_PROXY_BASE_URL,
+        timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
+    )
 
 
 @pytest.mark.integration_test
@@ -196,7 +204,9 @@ def test_main_render_error_when_questions_are_none(mock_openai: Mock) -> None:
     app.run()
 
     assert mock_openai.call_count == 1
-    mock_openai.assert_called_once_with(api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL)
+    mock_openai.assert_called_once_with(
+        api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
+    )
     assert app.error[0].value == "Error generating questions. Please try again."
 
 
@@ -214,6 +224,7 @@ def test_main_render_questions_on_success(mock_openai: Mock) -> None:
     def side_effect(*args: Any, **kwargs: Any) -> Mock:
         assert kwargs.get("api_key") == test_api_key
         assert kwargs.get("base_url") == DEFAULT_PROXY_BASE_URL
+        assert kwargs.get("timeout") == DEFAULT_OPENAI_TIMEOUT_SECONDS
         mock_client = Mock()
         mock_client.__enter__ = Mock(return_value=mock_client)
         mock_client.__exit__ = Mock(return_value=False)
@@ -236,7 +247,9 @@ def test_main_render_questions_on_success(mock_openai: Mock) -> None:
     app.button("generate_questions_button").click()
     app.run()
 
-    mock_openai.assert_called_once_with(api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL)
+    mock_openai.assert_called_once_with(
+        api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
+    )
     assert len(created_clients) == 1
     created_clients[0].chat.completions.create.assert_called_once_with(
         model=test_model_info.model_id,
@@ -287,6 +300,18 @@ def test_main_saves_answers_on_success(mock_openai: Mock) -> None:
     test_product_description = "test product description"
     test_questions = ["test question 1", "test question 2"]
     test_answers = ["test answer to question 1", "test answer to question 2"]
+    test_systematized_concepts = [
+        {
+            "title": "test concept 1",
+            "body": "test body 1",
+            "prompt_template": "test prompt template 1",
+        },
+        {
+            "title": "test concept 2",
+            "body": "test body 2",
+            "prompt_template": "test prompt template 2",
+        },
+    ]
 
     app = AppTest.from_file("src/aspis/ui/main.py")
 
@@ -301,7 +326,7 @@ def test_main_saves_answers_on_success(mock_openai: Mock) -> None:
     app.text_area("answer_input_1").set_value(test_answers[0])
     app.text_area("answer_input_2").set_value(test_answers[1])
 
-    mock_openai.side_effect = make_openai_side_effect(test_api_key, test_answers)
+    mock_openai.side_effect = make_openai_side_effect(test_api_key, test_systematized_concepts)
 
     app.button("submit_answers_button").click()
     app.run()
@@ -337,6 +362,7 @@ def test_main_render_results_when_answers_are_set(mock_openai: Mock) -> None:
     def side_effect(*args: Any, **kwargs: Any) -> Mock:
         assert kwargs.get("api_key") == test_api_key
         assert kwargs.get("base_url") == DEFAULT_PROXY_BASE_URL
+        assert kwargs.get("timeout") == DEFAULT_OPENAI_TIMEOUT_SECONDS
         mock_client = Mock()
         mock_client.__enter__ = Mock(return_value=mock_client)
         mock_client.__exit__ = Mock(return_value=False)
@@ -372,7 +398,9 @@ def test_main_render_results_when_answers_are_set(mock_openai: Mock) -> None:
     assert app.code[1].value == test_systematized_concepts[1]["prompt_template"]
 
     assert mock_openai.call_count == 1
-    mock_openai.assert_called_with(api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL)
+    mock_openai.assert_called_with(
+        api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
+    )
     assert len(created_clients) == 1
     created_clients[0].chat.completions.create.assert_called_once_with(
         model=test_model_info.model_id,
@@ -419,7 +447,9 @@ def test_main_render_error_when_systematized_concepts_are_none(mock_openai: Mock
     app.button("submit_answers_button").click()
     app.run()
 
-    mock_openai.assert_called_once_with(api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL)
+    mock_openai.assert_called_once_with(
+        api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
+    )
 
     assert app.error[0].value == "Error generating systematized concepts. Please try again."
 

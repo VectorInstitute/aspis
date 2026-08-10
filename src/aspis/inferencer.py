@@ -12,6 +12,7 @@ from aspis.utils import clean_model_output
 
 
 DEFAULT_PROXY_BASE_URL = "https://proxy.vectorinstitute.ai/v1"
+DEFAULT_OPENAI_TIMEOUT_SECONDS = 120.0
 
 # Content part types that are reasoning / thinking (not the final answer).
 _REASONING_PART_TYPES = frozenset({"reasoning", "thinking", "reasoning_content"})
@@ -77,7 +78,11 @@ def create_openai_client(api_key: str) -> OpenAI:
     Returns:
         A new ``OpenAI`` client pointed at the Vector proxy.
     """
-    return OpenAI(api_key=api_key, base_url=get_proxy_base_url())
+    return OpenAI(
+        api_key=api_key,
+        base_url=get_proxy_base_url(),
+        timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
+    )
 
 
 def execute_samples_against_model(prompts: list[str], model_info: ModelInfo, api_key: str) -> list[str]:
