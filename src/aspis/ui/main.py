@@ -6,12 +6,109 @@ from pathlib import Path
 import streamlit as st
 import yaml
 
-from aspis.inferencer import ModelInfo
+from aspis.inferencer import DEFAULT_PROXY_BASE_URL, ModelInfo, resolve_model_id, validate_proxy_base_url
 from aspis.systematization import (
     SystematizedConcept,
     get_systematization_questions,
     get_systematized_concepts,
 )
+
+
+def _resolve_model_selection(selected: ModelInfo | str) -> ModelInfo | str:
+    """Resolve a selectbox value to a known model or a custom model ID."""
+    if isinstance(selected, ModelInfo):
+        return selected
+
+    model_id = selected.strip()
+    known = ModelInfo.from_model_id(model_id)
+    return known if known is not None else model_id
+
+
+def resolve_submitted_proxy(
+    selected_model: ModelInfo | str,
+    proxy_value: str,
+) -> tuple[ModelInfo | str, str | None]:
+    """Validate model/proxy inputs from the landing page and return values to store.
+
+    An empty proxy address is allowed for known models, which fall back to their
+    provider default base URL at call time.
+
+    Args:
+        selected_model: The selectbox value (known ``ModelInfo`` or custom model ID).
+        proxy_value: The raw proxy address field value.
+
+    Returns:
+        A tuple of ``(resolved_model, proxy_base_url_or_none)``.
+
+    Raises:
+        ValueError: With a user-facing message when validation fails.
+    """
+    resolved_model = _resolve_model_selection(selected_model)
+    proxy_value = proxy_value.strip()
+
+    if not proxy_value:
+        if isinstance(resolved_model, ModelInfo):
+            return resolved_model, None
+        raise ValueError("Please enter a proxy address for custom model IDs.")
+
+    try:
+        validate_proxy_base_url(proxy_value)
+    except ValueError as e:
+        raise ValueError("Please enter a valid proxy address URL (http or https).") from e
+    return resolved_model, proxy_value
+
+
+def _apply_landing_form_submission(
+    product_description: str,
+    risk_description: str,
+    api_key: str | None,
+    model_info: ModelInfo | str | None,
+    proxy_value: str,
+) -> bool:
+    """Validate landing-page inputs and store them in session state.
+
+    All inputs are validated before anything is written, so a failed submission
+    leaves session state untouched and keeps the user on the landing page.
+
+    Args:
+        product_description: The submitted product description.
+        risk_description: The submitted risk description.
+        api_key: The submitted API key.
+        model_info: The selected known model or custom model ID.
+        proxy_value: The submitted proxy address, empty when the user left it blank.
+
+    Returns:
+        True when validation succeeded and state was updated; False when an error
+        was shown and the caller should stop.
+    """
+    if not product_description.strip():
+        st.error("Please enter a product description before proceeding.")
+        return False
+
+    if not risk_description.strip():
+        st.error("Please enter a risk description before proceeding.")
+        return False
+
+    if not api_key or not api_key.strip():
+        st.error("Please enter an API key before proceeding.")
+        return False
+
+    if model_info is None or (isinstance(model_info, str) and not model_info.strip()):
+        st.error("Please select a model before proceeding.")
+        return False
+
+    try:
+        resolved_model, resolved_proxy = resolve_submitted_proxy(model_info, proxy_value)
+    except ValueError as e:
+        st.error(str(e))
+        return False
+
+    st.session_state.product_description = product_description
+    st.session_state.risk_description = risk_description
+    st.session_state.api_key = api_key
+    st.session_state.proxy_base_url = resolved_proxy
+    st.session_state.model_info = resolved_model
+    return True
 
 
 def main() -> None:
@@ -25,6 +122,7 @@ def main() -> None:
     # Session state
     api_key = st.session_state.get("api_key", "")
     model_info = st.session_state.get("model_info", ModelInfo.OPENAI_GPT_4O)
+    proxy_base_url = st.session_state.get("proxy_base_url")
     risk_description = st.session_state.get("risk_description", "")
     product_description = st.session_state.get("product_description", "")
     follow_up_questions = st.session_state.get("follow_up_questions", None)
@@ -46,6 +144,7 @@ def main() -> None:
                     risk_description=risk_description,
                     api_key=api_key,
                     model_info=model_info,
+                    proxy_base_url=proxy_base_url,
                 )
 
         if follow_up_questions is None or len(follow_up_questions) == 0:
@@ -68,6 +167,7 @@ def main() -> None:
                     answers=systematization_answers,
                     api_key=api_key,
                     model_info=model_info,
+                    proxy_base_url=proxy_base_url,
                 )
 
         if systematized_concepts is None:
@@ -86,28 +186,31 @@ def render_landing_page() -> None:
         "To generate a measurement instrument for an AI risk, please start by answering the following questions:"
     )
 
-    with st.form("input_form"):
-        # Product description text area
-        current_product_description = st.text_area(
-            label="What is the description of your AI-powered product?",
-            placeholder="Enter your product description here...",
-            help=(
-                "Your product description is used to generate a measurement instrument for an AI risk. "
-                "Please describe your product in a comprehensive way."
-            ),
-            key="product_description_input",
-        )
+    # Every input lives inside the form: Streamlit only flushes text typed immediately
+    # before a click when the widget belongs to the submitted form.
+    with st.form("input_form", border=False):
+        with st.container(border=True):
+            # Product description text area
+            current_product_description = st.text_area(
+                label="What is the description of your AI-powered product?",
+                placeholder="Enter your product description here...",
+                help=(
+                    "Your product description is used to generate a measurement instrument for an AI risk. "
+                    "Please describe your product in a comprehensive way."
+                ),
+                key="product_description_input",
+            )
 
-        # Risk description text area
-        current_risk_description = st.text_area(
-            label="What is the AI risk you want to create a measurement instrument for?",
-            placeholder="Enter your risk description here...",
-            help=(
-                "Your risk description is used to generate a risk assessment. Please describe the "
-                "AI risk your product is exposed to in order to generate a measurement instrument."
-            ),
-            key="risk_description_input",
-        )
+            # Risk description text area
+            current_risk_description = st.text_area(
+                label="What is the AI risk you want to create a measurement instrument for?",
+                placeholder="Enter your risk description here...",
+                help=(
+                    "Your risk description is used to generate a risk assessment. Please describe the "
+                    "AI risk your product is exposed to in order to generate a measurement instrument."
+                ),
+                key="risk_description_input",
+            )
 
         # Model inputs
         st.markdown(
@@ -123,6 +226,8 @@ def render_landing_page() -> None:
                 options=model_options,
                 index=0,
                 key="model_info_input",
+                accept_new_options=True,
+                help="Pick a known model or type a custom model ID. Custom model IDs require a proxy address.",
             )
 
         with column_api_key:
@@ -135,32 +240,27 @@ def render_landing_page() -> None:
                 key="api_key_input",
             )
 
-        if st.form_submit_button("Generate Questions", type="primary", key="generate_questions_button"):
-            if current_product_description.strip():
-                st.session_state.product_description = current_product_description
-            else:
-                st.error("Please enter a product description before proceeding.")
-                return
+        with st.expander("Proxy details"):
+            current_proxy = st.text_input(
+                label="Proxy address",
+                placeholder="Type your proxy address",
+                help=(
+                    "OpenAI-compatible base URL. Leave it blank for known models to use their "
+                    "provider default. Required for custom model IDs. Power users can point it at "
+                    f"their own proxy (e.g. Vector: {DEFAULT_PROXY_BASE_URL}). Validated only when non-empty."
+                ),
+                key="proxy_base_url_input",
+            )
 
-            if current_risk_description.strip():
-                st.session_state.risk_description = current_risk_description
-            else:
-                st.error("Please enter a risk description before proceeding.")
-                return
-
-            if current_api_key.strip():
-                st.session_state.api_key = current_api_key
-            else:
-                st.error("Please enter an API key before proceeding.")
-                return
-
-            if current_model_info is not None:
-                st.session_state.model_info = current_model_info
-            else:
-                st.error("Please select a model before proceeding.")
-                return
-
-            # If it gets here, all the inputs are set, so rerun the UI
+        if st.form_submit_button(
+            "Generate Questions", type="primary", key="generate_questions_button"
+        ) and _apply_landing_form_submission(
+            current_product_description,
+            current_risk_description,
+            current_api_key,
+            current_model_info,
+            current_proxy,
+        ):
             st.rerun()
 
 
@@ -228,6 +328,7 @@ def render_download_button() -> None:
     file_contents = {
         "product_description": st.session_state.product_description,
         "risk_description": st.session_state.risk_description,
+        "model_id": resolve_model_id(st.session_state.model_info),
         "follow_up_questions": st.session_state.follow_up_questions,
         "systematization_answers": st.session_state.systematization_answers,
         "systematized_concepts": [asdict(concept) for concept in st.session_state.systematized_concepts],
@@ -285,6 +386,12 @@ def render_upload_button() -> None:
     # Note: API key is set to a placeholder because it can't be None,
     # we're restoring saved results and don't need to make new API calls at this stage
     st.session_state.api_key = "placeholder-key"
+    saved_model_id = saved_results.get("model_id")
+    if saved_model_id:
+        known = ModelInfo.from_model_id(str(saved_model_id))
+        st.session_state.model_info = known if known is not None else str(saved_model_id)
+    else:
+        st.session_state.model_info = ModelInfo.OPENAI_GPT_4O
     st.session_state.follow_up_questions = saved_results["follow_up_questions"]
     st.session_state.systematization_answers = saved_results["systematization_answers"]
     st.session_state.systematized_concepts = [

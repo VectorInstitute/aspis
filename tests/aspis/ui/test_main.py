@@ -11,18 +11,22 @@ import pytest
 import yaml
 from streamlit.testing.v1 import AppTest
 
-from aspis.inferencer import DEFAULT_OPENAI_TIMEOUT_SECONDS, DEFAULT_PROXY_BASE_URL, ModelInfo
+from aspis.inferencer import DEFAULT_OPENAI_TIMEOUT_SECONDS, ModelInfo
 from aspis.systematization import (
     SystematizedConcept,
     get_systematization_questions_prompt,
     get_systematized_concepts_prompt,
+)
+from aspis.ui.main import (
+    _apply_landing_form_submission,
+    resolve_submitted_proxy,
 )
 
 
 def make_openai_side_effect(api_key: str, return_value: Any) -> Callable[..., Mock]:
     def side_effect(*args: Any, **kwargs: Any) -> Mock:
         assert kwargs.get("api_key") == api_key
-        assert kwargs.get("base_url") == DEFAULT_PROXY_BASE_URL
+        assert kwargs.get("base_url") == ModelInfo.OPENAI_GPT_4O.default_proxy_base_url
         assert kwargs.get("timeout") == DEFAULT_OPENAI_TIMEOUT_SECONDS
 
         mock_client = Mock()
@@ -42,6 +46,7 @@ def test_main_render_inputs_when_empty(mock_openai: Mock) -> None:
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
+    assert len(app.exception) == 0
     assert app.title[0].value == "🛡️ Aspis"
     assert "api_key" not in app.session_state
     assert "model_info" not in app.session_state
@@ -53,6 +58,9 @@ def test_main_render_inputs_when_empty(mock_openai: Mock) -> None:
     assert app.selectbox("model_info_input").options == [model.friendly_name for model in list(ModelInfo)]
     assert app.selectbox("model_info_input").index == 0
     assert app.text_input("api_key_input").label == "Enter your API key:"
+    assert app.text_input("proxy_base_url_input").label == "Proxy address"
+    assert app.text_input("proxy_base_url_input").value == ""
+    assert app.text_input("proxy_base_url_input").placeholder == "Type your proxy address"
     assert app.text_area("product_description_input").label == "What is the description of your AI-powered product?"
     assert (
         app.text_area("risk_description_input").label
@@ -73,7 +81,7 @@ def test_main_ask_for_questions_when_inputs_are_set(mock_openai: Mock) -> None:
 
     def side_effect(*args: Any, **kwargs: Any) -> Mock:
         assert kwargs.get("api_key") == test_api_key
-        assert kwargs.get("base_url") == DEFAULT_PROXY_BASE_URL
+        assert kwargs.get("base_url") == ModelInfo.OPENAI_GPT_4O.default_proxy_base_url
         assert kwargs.get("timeout") == DEFAULT_OPENAI_TIMEOUT_SECONDS
         mock_client = Mock()
         mock_client.__enter__ = Mock(return_value=mock_client)
@@ -95,9 +103,12 @@ def test_main_ask_for_questions_when_inputs_are_set(mock_openai: Mock) -> None:
 
     app.run()
 
+    assert len(app.exception) == 0
     assert mock_openai.call_count == 1
     mock_openai.assert_called_once_with(
-        api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
+        api_key=test_api_key,
+        base_url=ModelInfo.OPENAI_GPT_4O.default_proxy_base_url,
+        timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
     )
     assert len(created_clients) == 1
     created_clients[0].chat.completions.create.assert_called_once_with(
@@ -171,6 +182,7 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_openai: Mock) -
     app.button("generate_questions_button").click()
     app.run()
 
+    assert len(app.exception) == 0
     assert len(app.error) == 0
     assert app.session_state.api_key == test_api_key
     assert app.session_state.model_info == test_model_info
@@ -178,7 +190,7 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_openai: Mock) -
     assert app.session_state.product_description == test_product_description
     mock_openai.assert_called_once_with(
         api_key=test_api_key,
-        base_url=DEFAULT_PROXY_BASE_URL,
+        base_url=ModelInfo.OPENAI_GPT_4O.default_proxy_base_url,
         timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
     )
 
@@ -205,7 +217,9 @@ def test_main_render_error_when_questions_are_none(mock_openai: Mock) -> None:
 
     assert mock_openai.call_count == 1
     mock_openai.assert_called_once_with(
-        api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
+        api_key=test_api_key,
+        base_url=ModelInfo.OPENAI_GPT_4O.default_proxy_base_url,
+        timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
     )
     assert app.error[0].value == "Error generating questions. Please try again."
 
@@ -223,7 +237,7 @@ def test_main_render_questions_on_success(mock_openai: Mock) -> None:
 
     def side_effect(*args: Any, **kwargs: Any) -> Mock:
         assert kwargs.get("api_key") == test_api_key
-        assert kwargs.get("base_url") == DEFAULT_PROXY_BASE_URL
+        assert kwargs.get("base_url") == ModelInfo.OPENAI_GPT_4O.default_proxy_base_url
         assert kwargs.get("timeout") == DEFAULT_OPENAI_TIMEOUT_SECONDS
         mock_client = Mock()
         mock_client.__enter__ = Mock(return_value=mock_client)
@@ -247,8 +261,11 @@ def test_main_render_questions_on_success(mock_openai: Mock) -> None:
     app.button("generate_questions_button").click()
     app.run()
 
+    assert len(app.exception) == 0
     mock_openai.assert_called_once_with(
-        api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
+        api_key=test_api_key,
+        base_url=ModelInfo.OPENAI_GPT_4O.default_proxy_base_url,
+        timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
     )
     assert len(created_clients) == 1
     created_clients[0].chat.completions.create.assert_called_once_with(
@@ -331,6 +348,7 @@ def test_main_saves_answers_on_success(mock_openai: Mock) -> None:
     app.button("submit_answers_button").click()
     app.run()
 
+    assert len(app.exception) == 0
     assert app.session_state.systematization_answers == test_answers
 
 
@@ -361,7 +379,7 @@ def test_main_render_results_when_answers_are_set(mock_openai: Mock) -> None:
 
     def side_effect(*args: Any, **kwargs: Any) -> Mock:
         assert kwargs.get("api_key") == test_api_key
-        assert kwargs.get("base_url") == DEFAULT_PROXY_BASE_URL
+        assert kwargs.get("base_url") == ModelInfo.OPENAI_GPT_4O.default_proxy_base_url
         assert kwargs.get("timeout") == DEFAULT_OPENAI_TIMEOUT_SECONDS
         mock_client = Mock()
         mock_client.__enter__ = Mock(return_value=mock_client)
@@ -390,6 +408,7 @@ def test_main_render_results_when_answers_are_set(mock_openai: Mock) -> None:
     app.button("submit_answers_button").click()
     app.run()
 
+    assert len(app.exception) == 0
     assert test_systematized_concepts[0]["title"] in app.markdown[4].value
     assert app.markdown[5].value == test_systematized_concepts[0]["body"]
     assert app.code[0].value == test_systematized_concepts[0]["prompt_template"]
@@ -399,7 +418,9 @@ def test_main_render_results_when_answers_are_set(mock_openai: Mock) -> None:
 
     assert mock_openai.call_count == 1
     mock_openai.assert_called_with(
-        api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
+        api_key=test_api_key,
+        base_url=ModelInfo.OPENAI_GPT_4O.default_proxy_base_url,
+        timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
     )
     assert len(created_clients) == 1
     created_clients[0].chat.completions.create.assert_called_once_with(
@@ -448,14 +469,17 @@ def test_main_render_error_when_systematized_concepts_are_none(mock_openai: Mock
     app.run()
 
     mock_openai.assert_called_once_with(
-        api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
+        api_key=test_api_key,
+        base_url=ModelInfo.OPENAI_GPT_4O.default_proxy_base_url,
+        timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
     )
 
     assert app.error[0].value == "Error generating systematized concepts. Please try again."
 
 
+@patch("aspis.ui.main.st.download_button")  # this has to be mocked because AppTest doesn't support download buttons yet
 @patch("aspis.ui.main.st.file_uploader")  # this has to be mocked because AppTest doesn't support file uploaders yet
-def test_main_upload_file_success(mock_file_uploader: Mock) -> None:
+def test_main_upload_file_success(mock_file_uploader: Mock, mock_download_button: Mock) -> None:
     test_systematized_concepts = [
         SystematizedConcept(
             title="test concept 1",
@@ -481,11 +505,24 @@ def test_main_upload_file_success(mock_file_uploader: Mock) -> None:
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
+    assert len(app.exception) == 0
     assert app.session_state.product_description == test_yaml_data["product_description"]
     assert app.session_state.risk_description == test_yaml_data["risk_description"]
+    assert app.session_state.model_info == ModelInfo.OPENAI_GPT_4O
     assert app.session_state.follow_up_questions == test_yaml_data["follow_up_questions"]
     assert app.session_state.systematization_answers == test_yaml_data["systematization_answers"]
     assert app.session_state.systematized_concepts == test_systematized_concepts
+    assert "Systematized Concepts" in app.markdown[1].value
+    mock_download_button.assert_called_with(
+        label="⬇️ Download results",
+        data=ANY,
+        file_name="systematized_concepts.yaml",
+        mime="text/yaml",
+    )
+    downloaded = yaml.safe_load(mock_download_button.call_args_list[0].kwargs["data"])
+    assert downloaded["model_id"] == ModelInfo.OPENAI_GPT_4O.model_id
+    assert "proxy_base_url" not in downloaded
+    assert "proxy" not in downloaded
 
 
 @patch("aspis.ui.main.st.file_uploader")  # this has to be mocked because AppTest doesn't support file uploaders yet
@@ -575,6 +612,7 @@ def test_main_download_button(mock_download_button: Mock) -> None:
     ]
     app.run()
 
+    assert len(app.exception) == 0
     mock_download_button.assert_called_with(
         label="⬇️ Download results",
         data=ANY,
@@ -585,8 +623,379 @@ def test_main_download_button(mock_download_button: Mock) -> None:
     expected_yaml_data = {
         "product_description": app.session_state.product_description,
         "risk_description": app.session_state.risk_description,
+        "model_id": ModelInfo.OPENAI_GPT_4O.model_id,
         "follow_up_questions": app.session_state.follow_up_questions,
         "systematization_answers": app.session_state.systematization_answers,
         "systematized_concepts": [asdict(concept) for concept in app.session_state.systematized_concepts],
     }
     assert expected_yaml_data == yaml.safe_load(mock_download_button.call_args_list[0].kwargs["data"])
+
+
+@pytest.mark.integration_test
+@patch("aspis.inferencer.OpenAI")
+def test_main_invalid_proxy_url_rejected(mock_openai: Mock) -> None:
+    app = AppTest.from_file("src/aspis/ui/main.py")
+    app.run()
+
+    app.selectbox("model_info_input").set_value(ModelInfo.OPENAI_GPT_4O)
+    app.text_input("proxy_base_url_input").set_value("not-a-url")
+    app.text_input("api_key_input").set_value("test api key")
+    app.text_area("product_description_input").set_value("test product description")
+    app.text_area("risk_description_input").set_value("test risk description")
+
+    app.button("generate_questions_button").click()
+    app.run()
+
+    assert app.error[0].value == "Please enter a valid proxy address URL (http or https)."
+    mock_openai.assert_not_called()
+
+
+def assert_landing_page_rendered_without_inputs(app: AppTest) -> None:
+    """Assert the landing form is still rendered and no landing input was persisted."""
+    assert "product_description" not in app.session_state
+    assert "risk_description" not in app.session_state
+    assert "api_key" not in app.session_state
+    assert app.text_area("product_description_input").label == "What is the description of your AI-powered product?"
+    assert (
+        app.text_area("risk_description_input").label
+        == "What is the AI risk you want to create a measurement instrument for?"
+    )
+
+
+@pytest.mark.integration_test
+@patch("aspis.inferencer.OpenAI")
+def test_main_failed_proxy_validation_does_not_persist_inputs(mock_openai: Mock) -> None:
+    app = AppTest.from_file("src/aspis/ui/main.py")
+    app.run()
+
+    app.selectbox("model_info_input").set_value(ModelInfo.OPENAI_GPT_4O)
+    app.text_input("proxy_base_url_input").set_value("not-a-url")
+    app.text_input("api_key_input").set_value("test api key")
+    app.text_area("product_description_input").set_value("test product description")
+    app.text_area("risk_description_input").set_value("test risk description")
+
+    app.button("generate_questions_button").click()
+    app.run()
+
+    assert app.error[0].value == "Please enter a valid proxy address URL (http or https)."
+    assert "model_info" not in app.session_state
+    assert "proxy_base_url" not in app.session_state
+    assert_landing_page_rendered_without_inputs(app)
+    mock_openai.assert_not_called()
+
+    # A subsequent rerun (any widget interaction) must not bypass the landing page.
+    app.run()
+
+    assert_landing_page_rendered_without_inputs(app)
+    mock_openai.assert_not_called()
+
+
+class FakeSessionState(dict):  # type: ignore[type-arg]
+    """Minimal stand-in for ``st.session_state`` supporting attribute access."""
+
+    def __getattr__(self, name: str) -> Any:
+        try:
+            return self[name]
+        except KeyError as e:
+            raise AttributeError(name) from e
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        self[name] = value
+
+
+def submit_landing_form(
+    model_info: ModelInfo | str | None,
+    proxy_input: str,
+    product_description: str = "test product description",
+    risk_description: str = "test risk description",
+    api_key: str | None = "test api key",
+) -> tuple[bool, FakeSessionState, list[str]]:
+    """Call the landing-form handler with a fake session, collecting errors."""
+    session_state = FakeSessionState()
+    errors: list[str] = []
+
+    with patch("aspis.ui.main.st") as mock_st:
+        mock_st.session_state = session_state
+        mock_st.error.side_effect = errors.append
+        accepted = _apply_landing_form_submission(
+            product_description, risk_description, api_key, model_info, proxy_input
+        )
+
+    return accepted, session_state, errors
+
+
+def assert_nothing_persisted(session_state: FakeSessionState) -> None:
+    """Assert a rejected submission left no landing-page value in session state."""
+    for key in ("product_description", "risk_description", "api_key", "model_info", "proxy_base_url"):
+        assert key not in session_state
+
+
+def test_apply_landing_form_submission_custom_model_without_proxy_rejected() -> None:
+    accepted, session_state, errors = submit_landing_form("my-custom-model", "")
+
+    assert accepted is False
+    assert errors == ["Please enter a proxy address for custom model IDs."]
+    assert_nothing_persisted(session_state)
+
+
+def test_apply_landing_form_submission_custom_model_with_invalid_proxy_rejected() -> None:
+    accepted, session_state, errors = submit_landing_form("my-custom-model", "not-a-url")
+
+    assert accepted is False
+    assert errors == ["Please enter a valid proxy address URL (http or https)."]
+    assert_nothing_persisted(session_state)
+
+
+def test_apply_landing_form_submission_known_model_with_invalid_proxy_rejected() -> None:
+    accepted, session_state, errors = submit_landing_form(ModelInfo.OPENAI_GPT_4O, "not-a-url")
+
+    assert accepted is False
+    assert errors == ["Please enter a valid proxy address URL (http or https)."]
+    assert_nothing_persisted(session_state)
+
+
+def test_apply_landing_form_submission_known_model_without_proxy_accepted() -> None:
+    accepted, session_state, errors = submit_landing_form(ModelInfo.OPENAI_GPT_4O, "")
+
+    assert accepted is True
+    assert errors == []
+    assert session_state["model_info"] == ModelInfo.OPENAI_GPT_4O
+    assert session_state["proxy_base_url"] is None
+
+
+def test_apply_landing_form_submission_known_model_with_valid_proxy_accepted() -> None:
+    accepted, session_state, errors = submit_landing_form(
+        ModelInfo.OPENAI_GPT_4O, "https://proxy.vectorinstitute.ai/v1"
+    )
+
+    assert accepted is True
+    assert errors == []
+    assert session_state["model_info"] == ModelInfo.OPENAI_GPT_4O
+    assert session_state["proxy_base_url"] == "https://proxy.vectorinstitute.ai/v1"
+
+
+def test_apply_landing_form_submission_custom_model_with_valid_proxy_accepted() -> None:
+    accepted, session_state, errors = submit_landing_form("my-custom-model", "https://proxy.vectorinstitute.ai/v1")
+
+    assert accepted is True
+    assert errors == []
+    assert session_state["model_info"] == "my-custom-model"
+    assert session_state["proxy_base_url"] == "https://proxy.vectorinstitute.ai/v1"
+    assert session_state["product_description"] == "test product description"
+    assert session_state["risk_description"] == "test risk description"
+    assert session_state["api_key"] == "test api key"
+
+
+@pytest.mark.parametrize(
+    ("product_description", "risk_description", "api_key", "expected_error"),
+    [
+        ("", "test risk description", "test api key", "Please enter a product description before proceeding."),
+        ("test product description", "", "test api key", "Please enter a risk description before proceeding."),
+        ("test product description", "test risk description", "", "Please enter an API key before proceeding."),
+    ],
+)
+def test_apply_landing_form_submission_missing_inputs_persist_nothing(
+    product_description: str,
+    risk_description: str,
+    api_key: str,
+    expected_error: str,
+) -> None:
+    accepted, session_state, errors = submit_landing_form(
+        ModelInfo.OPENAI_GPT_4O,
+        "",
+        product_description=product_description,
+        risk_description=risk_description,
+        api_key=api_key,
+    )
+
+    assert accepted is False
+    assert errors == [expected_error]
+    assert_nothing_persisted(session_state)
+
+
+@pytest.mark.integration_test
+@patch("aspis.inferencer.OpenAI")
+def test_main_known_model_with_empty_proxy_uses_provider_default(mock_openai: Mock) -> None:
+    test_api_key = "test api key"
+    mock_openai.side_effect = make_openai_side_effect(test_api_key, ["test question"])
+
+    app = AppTest.from_file("src/aspis/ui/main.py")
+    app.run()
+
+    app.selectbox("model_info_input").set_value(ModelInfo.OPENAI_GPT_4O)
+    app.text_input("api_key_input").set_value(test_api_key)
+    app.text_area("product_description_input").set_value("test product description")
+    app.text_area("risk_description_input").set_value("test risk description")
+
+    app.button("generate_questions_button").click()
+    app.run()
+
+    assert len(app.exception) == 0
+    assert len(app.error) == 0
+    assert app.session_state.proxy_base_url is None
+    assert app.session_state.model_info == ModelInfo.OPENAI_GPT_4O
+    mock_openai.assert_called_once_with(
+        api_key=test_api_key,
+        base_url=ModelInfo.OPENAI_GPT_4O.default_proxy_base_url,
+        timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
+    )
+
+
+@pytest.mark.integration_test
+@patch("aspis.inferencer.OpenAI")
+def test_main_known_model_with_custom_proxy(mock_openai: Mock) -> None:
+    test_api_key = "test api key"
+    test_proxy = "https://proxy.vectorinstitute.ai/v1"
+
+    def side_effect(*args: Any, **kwargs: Any) -> Mock:
+        assert kwargs.get("base_url") == test_proxy
+        mock_client = Mock()
+        mock_client.__enter__ = Mock(return_value=mock_client)
+        mock_client.__exit__ = Mock(return_value=False)
+        mock_client.chat.completions.create.return_value = Mock(
+            choices=[Mock(message=Mock(content=json.dumps(["test question"])))]
+        )
+        return mock_client
+
+    mock_openai.side_effect = side_effect
+
+    app = AppTest.from_file("src/aspis/ui/main.py")
+    app.run()
+
+    app.selectbox("model_info_input").set_value(ModelInfo.OPENAI_GPT_4O)
+    app.text_input("proxy_base_url_input").set_value(test_proxy)
+    app.text_input("api_key_input").set_value(test_api_key)
+    app.text_area("product_description_input").set_value("test product description")
+    app.text_area("risk_description_input").set_value("test risk description")
+
+    app.button("generate_questions_button").click()
+    app.run()
+
+    assert len(app.exception) == 0
+    assert len(app.error) == 0
+    assert app.session_state.proxy_base_url == test_proxy
+    mock_openai.assert_called_once_with(
+        api_key=test_api_key,
+        base_url=test_proxy,
+        timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
+    )
+
+
+def test_landing_page_inputs_are_inside_the_form() -> None:
+    """A browser only flushes pending edits of widgets that live inside the form."""
+    app = AppTest.from_file("src/aspis/ui/main.py")
+    app.run()
+
+    assert len(app.exception) == 0
+    form_id = app.button("generate_questions_button").form_id
+    assert form_id != ""
+    assert app.selectbox("model_info_input").form_id == form_id
+    # AppTest cannot type a custom option, so assert the model selectbox still allows
+    # one now that it lives inside the form.
+    assert app.selectbox("model_info_input").proto.accept_new_options is True
+    assert app.text_input("api_key_input").form_id == form_id
+    assert app.text_input("proxy_base_url_input").form_id == form_id
+    assert app.text_area("product_description_input").form_id == form_id
+    assert app.text_area("risk_description_input").form_id == form_id
+
+
+def test_resolve_submitted_proxy_known_model_defaults() -> None:
+    model, proxy = resolve_submitted_proxy(ModelInfo.OPENAI_GPT_4O, "")
+    assert model == ModelInfo.OPENAI_GPT_4O
+    assert proxy is None
+
+
+def test_resolve_submitted_proxy_known_model_id_string_defaults() -> None:
+    model, proxy = resolve_submitted_proxy(ModelInfo.GOOGLE_GEMINI_3_FLASH_PREVIEW.model_id, "")
+    assert model == ModelInfo.GOOGLE_GEMINI_3_FLASH_PREVIEW
+    assert proxy is None
+
+
+def test_resolve_submitted_proxy_known_model_override() -> None:
+    model, proxy = resolve_submitted_proxy(ModelInfo.OPENAI_GPT_4O, "https://proxy.vectorinstitute.ai/v1")
+    assert model == ModelInfo.OPENAI_GPT_4O
+    assert proxy == "https://proxy.vectorinstitute.ai/v1"
+
+
+def test_resolve_submitted_proxy_custom_model_requires_proxy() -> None:
+    with pytest.raises(ValueError, match="Please enter a proxy address for custom model IDs"):
+        resolve_submitted_proxy("my-custom-model", "")
+
+
+def test_resolve_submitted_proxy_custom_model_with_proxy() -> None:
+    model, proxy = resolve_submitted_proxy("my-custom-model", "https://proxy.vectorinstitute.ai/v1")
+    assert model == "my-custom-model"
+    assert proxy == "https://proxy.vectorinstitute.ai/v1"
+
+
+def test_resolve_submitted_proxy_rejects_invalid_url() -> None:
+    with pytest.raises(ValueError, match="Please enter a valid proxy address URL"):
+        resolve_submitted_proxy(ModelInfo.OPENAI_GPT_4O, "not-a-url")
+
+
+@patch("aspis.ui.main.st.download_button")
+@patch("aspis.ui.main.st.file_uploader")
+def test_main_upload_restores_optional_model_id(mock_file_uploader: Mock, mock_download_button: Mock) -> None:
+    test_systematized_concepts = [
+        SystematizedConcept(
+            title="test concept 1",
+            body="test body 1",
+            prompt_template="test prompt template 1",
+        ),
+    ]
+    test_yaml_data = {
+        "product_description": "test product description",
+        "risk_description": "test risk description",
+        "model_id": ModelInfo.GOOGLE_GEMINI_3_FLASH_PREVIEW.model_id,
+        "follow_up_questions": ["test question 1"],
+        "systematization_answers": ["test answer 1"],
+        "systematized_concepts": [asdict(concept) for concept in test_systematized_concepts],
+    }
+
+    mock_file_uploader.return_value = BytesIO(yaml.safe_dump(test_yaml_data).encode("utf-8"))
+
+    app = AppTest.from_file("src/aspis/ui/main.py")
+    app.run()
+
+    assert len(app.exception) == 0
+    assert app.session_state.model_info == ModelInfo.GOOGLE_GEMINI_3_FLASH_PREVIEW
+    assert app.session_state.systematized_concepts == test_systematized_concepts
+
+
+@patch("aspis.ui.main.st.download_button")
+@patch("aspis.ui.main.st.file_uploader")
+def test_main_upload_restores_custom_model_id(mock_file_uploader: Mock, mock_download_button: Mock) -> None:
+    test_systematized_concepts = [
+        SystematizedConcept(
+            title="test concept 1",
+            body="test body 1",
+            prompt_template="test prompt template 1",
+        ),
+    ]
+    test_yaml_data = {
+        "product_description": "test product description",
+        "risk_description": "test risk description",
+        "model_id": "my-custom-model",
+        "follow_up_questions": ["test question 1"],
+        "systematization_answers": ["test answer 1"],
+        "systematized_concepts": [asdict(concept) for concept in test_systematized_concepts],
+    }
+
+    mock_file_uploader.return_value = BytesIO(yaml.safe_dump(test_yaml_data).encode("utf-8"))
+
+    app = AppTest.from_file("src/aspis/ui/main.py")
+    app.run()
+
+    assert len(app.exception) == 0
+    assert app.session_state.model_info == "my-custom-model"
+    assert app.session_state.systematized_concepts == test_systematized_concepts
+    mock_download_button.assert_called_with(
+        label="⬇️ Download results",
+        data=ANY,
+        file_name="systematized_concepts.yaml",
+        mime="text/yaml",
+    )
+    downloaded = yaml.safe_load(mock_download_button.call_args_list[0].kwargs["data"])
+    assert downloaded["model_id"] == "my-custom-model"
+    assert "proxy_base_url" not in downloaded
+    assert "proxy" not in downloaded

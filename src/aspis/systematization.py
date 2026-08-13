@@ -84,7 +84,8 @@ def get_systematization_questions(
     product_description: str,
     risk_description: str,
     api_key: str,
-    model_info: ModelInfo,
+    model_info: ModelInfo | str,
+    proxy_base_url: str | None = None,
 ) -> list[str] | None:
     """Get the systematization questions.
 
@@ -92,8 +93,8 @@ def get_systematization_questions(
         product_description: The description of the AI-powered product.
         risk_description: The description of the AI risk the product is exposed to.
         api_key: The API key to use the LLM.
-        model_info: The information about the model to use to generate the
-            systematization questions.
+        model_info: Known ``ModelInfo`` or free-form model ID string.
+        proxy_base_url: Optional per-request OpenAI-compatible base URL override.
 
     Returns:
         The follow up systematization questions. Will be None if the model fails to
@@ -107,7 +108,7 @@ def get_systematization_questions(
         systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
     )
 
-    model_outputs = execute_samples_against_model([prompt], model_info, api_key)
+    model_outputs = execute_samples_against_model([prompt], model_info, api_key, proxy_base_url=proxy_base_url)
     assert len(model_outputs) == 1, "Expected exactly one model output"
     model_output = model_outputs[0]
 
@@ -146,7 +147,8 @@ def get_systematized_concepts(
     questions: list[str],
     answers: list[str],
     api_key: str,
-    model_info: ModelInfo,
+    model_info: ModelInfo | str,
+    proxy_base_url: str | None = None,
 ) -> list[SystematizedConcept] | None:
     """Generate systematized concepts from the answers to follow-up questions.
 
@@ -156,8 +158,8 @@ def get_systematized_concepts(
         questions: The follow-up questions that were asked.
         answers: The answers provided by the user.
         api_key: The API key to use the LLM.
-        model_info: The information about the model to use to generate the
-            systematized concepts.
+        model_info: Known ``ModelInfo`` or free-form model ID string.
+        proxy_base_url: Optional per-request OpenAI-compatible base URL override.
 
     Returns:
         A list of systematized concepts with titles, bodies, and prompt templates.
@@ -168,7 +170,7 @@ def get_systematized_concepts(
 
     prompt = get_systematized_concepts_prompt(product_description, risk_description, questions, answers)
 
-    model_outputs = execute_samples_against_model([prompt], model_info, api_key)
+    model_outputs = execute_samples_against_model([prompt], model_info, api_key, proxy_base_url=proxy_base_url)
     assert len(model_outputs) == 1, "Expected exactly one model output"
     model_output = model_outputs[0]
 
