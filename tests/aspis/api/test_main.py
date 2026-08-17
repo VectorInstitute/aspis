@@ -473,13 +473,13 @@ def test_evaluate_from_file_failure_assertions(mock_openai: Mock) -> None:
     return_values_and_expectations = [
         (
             Mock(choices=[]),
-            422,
-            "Expected at least one choice in the model response",
+            500,
+            "Evaluation failed: Expected at least one choice in the model response",
         ),
         (
             Mock(choices=[Mock(message=Mock(content=123))]),
-            422,
-            "Unsupported model output content type: <class 'int'>",
+            500,
+            "Evaluation failed: Unsupported model output content type: <class 'int'>",
         ),
     ]
 

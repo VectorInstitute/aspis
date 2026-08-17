@@ -797,6 +797,38 @@ def test_apply_landing_form_submission_missing_model_rejected(selected_model: st
     assert_nothing_persisted(session_state)
 
 
+def test_main_missing_provider_url_before_questions_shows_error() -> None:
+    app = AppTest.from_file("src/aspis/ui/main.py")
+    app.session_state.api_key = "test api key"
+    app.session_state.model_id = ModelInfo.OPENAI_GPT_4O.model_id
+    app.session_state.product_description = "test product description"
+    app.session_state.risk_description = "test risk description"
+    app.run()
+
+    assert len(app.exception) == 0
+    assert any(
+        "Missing provider URL or API key. Please start over from the landing page." in error.value
+        for error in app.error
+    )
+
+
+def test_main_missing_provider_url_before_concepts_shows_error() -> None:
+    app = AppTest.from_file("src/aspis/ui/main.py")
+    app.session_state.api_key = "test api key"
+    app.session_state.model_id = ModelInfo.OPENAI_GPT_4O.model_id
+    app.session_state.product_description = "test product description"
+    app.session_state.risk_description = "test risk description"
+    app.session_state.follow_up_questions = ["test question 1"]
+    app.session_state.systematization_answers = ["test answer 1"]
+    app.run()
+
+    assert len(app.exception) == 0
+    assert any(
+        "Missing provider URL or API key. Please start over from the landing page." in error.value
+        for error in app.error
+    )
+
+
 @pytest.mark.parametrize(
     ("product_description", "risk_description", "api_key", "expected_error"),
     [
