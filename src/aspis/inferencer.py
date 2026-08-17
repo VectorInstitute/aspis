@@ -1,6 +1,8 @@
 """Scorer for applications using Aspis as an LLM-as-a-judge."""
 
+import ipaddress
 import json
+import socket
 from enum import Enum
 from typing import Any, Self
 from urllib.parse import urlparse
@@ -15,6 +17,23 @@ DEFAULT_OPENAI_TIMEOUT_SECONDS = 120.0
 
 # Content part types that are reasoning / thinking (not the final answer).
 _REASONING_PART_TYPES = frozenset({"reasoning", "thinking", "reasoning_content"})
+
+# Hostnames that must never be used as a provider / proxy target.
+_BLOCKED_PROVIDER_HOSTNAMES = frozenset(
+    {
+        "localhost",
+        "localhost.localdomain",
+        "metadata.google.internal",
+        "metadata.goog",
+    }
+)
+
+# Extra IPv4 ranges not always covered by ``ipaddress`` "private" flags.
+_BLOCKED_IPV4_NETWORKS = (
+    ipaddress.ip_network("100.64.0.0/10"),  # Carrier-grade NAT
+)
+
+_DANGEROUS_PROVIDER_URL_MESSAGE = "Proxy address must not target a private, local, or link-local network."
 
 
 class ModelInfo(str, Enum):
@@ -85,6 +104,68 @@ class ModelInfo(str, Enum):
         return None
 
 
+def _is_dangerous_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """Return True when ``ip`` is unsuitable as a provider / proxy destination."""
+    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
+
+    if isinstance(ip, ipaddress.IPv4Address):
+        for network in _BLOCKED_IPV4_NETWORKS:
+            if ip in network:
+                return True
+
+    return bool(
+        ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved or ip.is_unspecified
+    )
+
+
+def assert_provider_url_not_dangerous(provider_url: str) -> None:
+    """Raise if ``provider_url`` points at a dangerous / non-public destination.
+
+    Blocks loopback, link-local (including cloud metadata), private RFC1918,
+    IPv6 ULA, CGNAT, multicast/reserved/unspecified addresses, and well-known
+    local or metadata hostnames. Hostnames are DNS-resolved and every returned
+    address is checked.
+
+    Args:
+        provider_url: A provider / proxy base URL that has already passed basic
+            http(s) URL validation.
+
+    Raises:
+        ValueError: If the host is blocked or cannot be resolved safely.
+    """
+    hostname = urlparse(provider_url.strip()).hostname
+    if hostname is None:
+        raise ValueError("Please enter a valid proxy address URL (http or https).")
+
+    hostname = hostname.lower().rstrip(".")
+    if hostname in _BLOCKED_PROVIDER_HOSTNAMES or hostname.endswith(".localhost"):
+        raise ValueError(_DANGEROUS_PROVIDER_URL_MESSAGE)
+
+    try:
+        literal_ip = ipaddress.ip_address(hostname)
+    except ValueError:
+        literal_ip = None
+
+    if literal_ip is not None:
+        if _is_dangerous_ip(literal_ip):
+            raise ValueError(_DANGEROUS_PROVIDER_URL_MESSAGE)
+        return
+
+    try:
+        addrinfo = socket.getaddrinfo(hostname, None, type=socket.SOCK_STREAM)
+    except OSError as e:
+        raise ValueError("Unable to resolve proxy address host.") from e
+
+    if not addrinfo:
+        raise ValueError("Unable to resolve proxy address host.")
+
+    for entry in addrinfo:
+        resolved_ip = ipaddress.ip_address(entry[4][0])
+        if _is_dangerous_ip(resolved_ip):
+            raise ValueError(_DANGEROUS_PROVIDER_URL_MESSAGE)
+
+
 def validate_provider_url(provider_url: str) -> None:
     """Validate a non-empty provider / proxy base URL.
 
@@ -92,11 +173,14 @@ def validate_provider_url(provider_url: str) -> None:
         provider_url: The provider base URL to validate.
 
     Raises:
-        ValueError: If the URL is not a valid http(s) URL with a host.
+        ValueError: If the URL is not a valid http(s) URL with a host, or if it
+            targets a private / local / link-local destination.
     """
     parsed = urlparse(provider_url.strip())
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
         raise ValueError("Please enter a valid proxy address URL (http or https).")
+
+    assert_provider_url_not_dangerous(provider_url)
 
 
 def resolve_model_and_provider_url(

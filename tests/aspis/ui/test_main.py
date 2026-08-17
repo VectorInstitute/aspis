@@ -767,23 +767,21 @@ def test_apply_landing_form_submission_known_model_without_proxy_accepted() -> N
 
 
 def test_apply_landing_form_submission_known_model_with_valid_proxy_accepted() -> None:
-    accepted, session_state, errors = submit_landing_form(
-        ModelInfo.OPENAI_GPT_4O, "https://proxy.vectorinstitute.ai/v1"
-    )
+    accepted, session_state, errors = submit_landing_form(ModelInfo.OPENAI_GPT_4O, "https://1.1.1.1/v1")
 
     assert accepted is True
     assert errors == []
     assert session_state["model_id"] == ModelInfo.OPENAI_GPT_4O.model_id
-    assert session_state["provider_url"] == "https://proxy.vectorinstitute.ai/v1"
+    assert session_state["provider_url"] == "https://1.1.1.1/v1"
 
 
 def test_apply_landing_form_submission_custom_model_with_valid_proxy_accepted() -> None:
-    accepted, session_state, errors = submit_landing_form("my-custom-model", "https://proxy.vectorinstitute.ai/v1")
+    accepted, session_state, errors = submit_landing_form("my-custom-model", "https://1.1.1.1/v1")
 
     assert accepted is True
     assert errors == []
     assert session_state["model_id"] == "my-custom-model"
-    assert session_state["provider_url"] == "https://proxy.vectorinstitute.ai/v1"
+    assert session_state["provider_url"] == "https://1.1.1.1/v1"
     assert session_state["product_description"] == "test product description"
     assert session_state["risk_description"] == "test risk description"
     assert session_state["api_key"] == "test api key"
@@ -848,7 +846,7 @@ def test_main_known_model_with_empty_proxy_uses_provider_default(mock_openai: Mo
 @patch("aspis.inferencer.OpenAI")
 def test_main_known_model_with_custom_proxy(mock_openai: Mock) -> None:
     test_api_key = "test api key"
-    test_proxy = "https://proxy.vectorinstitute.ai/v1"
+    test_proxy = "https://1.1.1.1/v1"
 
     def side_effect(*args: Any, **kwargs: Any) -> Mock:
         assert kwargs.get("base_url") == test_proxy
@@ -915,11 +913,9 @@ def test_resolve_model_and_provider_url_known_model_id_string_defaults_from_ui()
 
 
 def test_resolve_model_and_provider_url_known_model_override_from_ui() -> None:
-    model_id, provider_url = resolve_model_and_provider_url(
-        ModelInfo.OPENAI_GPT_4O.model_id, "https://proxy.vectorinstitute.ai/v1"
-    )
+    model_id, provider_url = resolve_model_and_provider_url(ModelInfo.OPENAI_GPT_4O.model_id, "https://1.1.1.1/v1")
     assert model_id == ModelInfo.OPENAI_GPT_4O.model_id
-    assert provider_url == "https://proxy.vectorinstitute.ai/v1"
+    assert provider_url == "https://1.1.1.1/v1"
 
 
 def test_resolve_model_and_provider_url_custom_model_requires_proxy_from_ui() -> None:
@@ -928,9 +924,9 @@ def test_resolve_model_and_provider_url_custom_model_requires_proxy_from_ui() ->
 
 
 def test_resolve_model_and_provider_url_custom_model_with_proxy_from_ui() -> None:
-    model_id, provider_url = resolve_model_and_provider_url("my-custom-model", "https://proxy.vectorinstitute.ai/v1")
+    model_id, provider_url = resolve_model_and_provider_url("my-custom-model", "https://1.1.1.1/v1")
     assert model_id == "my-custom-model"
-    assert provider_url == "https://proxy.vectorinstitute.ai/v1"
+    assert provider_url == "https://1.1.1.1/v1"
 
 
 def test_resolve_model_and_provider_url_rejects_invalid_url_from_ui() -> None:

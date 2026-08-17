@@ -283,7 +283,7 @@ def test_evaluate_from_file_custom_model_with_proxy_success(mock_openai: Mock) -
         {"title": "Test concept 1", "prompt_template": "Test template 1 <text_to_evaluate/> text"}
     ]
     file_content = yaml.safe_dump({"systematized_concepts": test_systematized_concepts}).encode("utf-8")
-    test_proxy = "https://proxy.vectorinstitute.ai/v1"
+    test_proxy = "https://1.1.1.1/v1"
     test_api_key = "test api key"
     test_model = "my-custom-model"
 
@@ -333,7 +333,7 @@ def test_evaluate_from_file_known_model_with_proxy_override(mock_openai: Mock) -
         {"title": "Test concept 1", "prompt_template": "Test template 1 <text_to_evaluate/> text"}
     ]
     file_content = yaml.safe_dump({"systematized_concepts": test_systematized_concepts}).encode("utf-8")
-    test_proxy = "https://proxy.vectorinstitute.ai/v1"
+    test_proxy = "https://1.1.1.1/v1"
     test_api_key = "test api key"
 
     mock_client = Mock()
