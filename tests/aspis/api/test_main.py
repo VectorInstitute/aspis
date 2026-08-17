@@ -80,7 +80,7 @@ def test_evaluate_from_file_success(mock_openai: Mock) -> None:
 
         mock_openai.assert_called_once_with(
             api_key=test_api_key,
-            base_url=ModelInfo.OPENAI_GPT_4O.default_proxy_base_url,
+            base_url=ModelInfo.OPENAI_GPT_4O.provider_url,
             timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
         )
         assert mock_client.chat.completions.create.call_count == len(test_systematized_concepts)
@@ -184,7 +184,7 @@ def test_evaluate_from_file_with_model_success(mock_openai: Mock) -> None:
         assert response.status_code == 200
         mock_openai.assert_called_once_with(
             api_key=test_api_key,
-            base_url=ModelInfo.GOOGLE_GEMINI_3_1_PRO_PREVIEW.default_proxy_base_url,
+            base_url=ModelInfo.GOOGLE_GEMINI_3_1_PRO_PREVIEW.provider_url,
             timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
         )
         mock_client.chat.completions.create.assert_called_once_with(
@@ -234,7 +234,7 @@ def test_evaluate_from_file_strips_whitespace_padded_known_model(mock_openai: Mo
         assert response.status_code == 200
         mock_openai.assert_called_once_with(
             api_key=test_api_key,
-            base_url=ModelInfo.OPENAI_GPT_4O.default_proxy_base_url,
+            base_url=ModelInfo.OPENAI_GPT_4O.provider_url,
             timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
         )
         mock_client.chat.completions.create.assert_called_once_with(
@@ -273,7 +273,7 @@ def test_evaluate_from_file_custom_model_requires_proxy() -> None:
         )
 
         assert response.status_code == 422
-        assert "proxy_base_url is required" in response.json()["detail"]
+        assert "Please enter a proxy address for custom model IDs" in response.json()["detail"]
 
 
 @pytest.mark.integration_test
@@ -392,7 +392,7 @@ def test_evaluate_from_file_invalid_proxy_url() -> None:
         )
 
         assert response.status_code == 422
-        assert "Invalid proxy_base_url" in response.json()["detail"]
+        assert "Please enter a valid proxy address URL" in response.json()["detail"]
 
 
 @pytest.mark.integration_test
@@ -431,7 +431,7 @@ def test_evaluate_from_file_empty_proxy_skips_validation(mock_openai: Mock) -> N
         assert response.status_code == 200
         mock_openai.assert_called_once_with(
             api_key=test_api_key,
-            base_url=ModelInfo.OPENAI_GPT_4O.default_proxy_base_url,
+            base_url=ModelInfo.OPENAI_GPT_4O.provider_url,
             timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
         )
 

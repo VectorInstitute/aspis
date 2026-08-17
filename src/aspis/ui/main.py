@@ -6,7 +6,7 @@ from pathlib import Path
 import streamlit as st
 import yaml
 
-from aspis.inferencer import DEFAULT_PROXY_BASE_URL, ModelInfo, resolve_model_id, validate_proxy_base_url
+from aspis.inferencer import ModelInfo, resolve_model_and_provider_url
 from aspis.systematization import (
     SystematizedConcept,
     get_systematization_questions,
@@ -14,55 +14,11 @@ from aspis.systematization import (
 )
 
 
-def _resolve_model_selection(selected: ModelInfo | str) -> ModelInfo | str:
-    """Resolve a selectbox value to a known model or a custom model ID."""
-    if isinstance(selected, ModelInfo):
-        return selected
-
-    model_id = selected.strip()
-    known = ModelInfo.from_model_id(model_id)
-    return known if known is not None else model_id
-
-
-def resolve_submitted_proxy(
-    selected_model: ModelInfo | str,
-    proxy_value: str,
-) -> tuple[ModelInfo | str, str | None]:
-    """Validate model/proxy inputs from the landing page and return values to store.
-
-    An empty proxy address is allowed for known models, which fall back to their
-    provider default base URL at call time.
-
-    Args:
-        selected_model: The selectbox value (known ``ModelInfo`` or custom model ID).
-        proxy_value: The raw proxy address field value.
-
-    Returns:
-        A tuple of ``(resolved_model, proxy_base_url_or_none)``.
-
-    Raises:
-        ValueError: With a user-facing message when validation fails.
-    """
-    resolved_model = _resolve_model_selection(selected_model)
-    proxy_value = proxy_value.strip()
-
-    if not proxy_value:
-        if isinstance(resolved_model, ModelInfo):
-            return resolved_model, None
-        raise ValueError("Please enter a proxy address for custom model IDs.")
-
-    try:
-        validate_proxy_base_url(proxy_value)
-    except ValueError as e:
-        raise ValueError("Please enter a valid proxy address URL (http or https).") from e
-    return resolved_model, proxy_value
-
-
 def _apply_landing_form_submission(
     product_description: str,
     risk_description: str,
     api_key: str | None,
-    model_info: ModelInfo | str | None,
+    selected_model: ModelInfo | str | None,
     proxy_value: str,
 ) -> bool:
     """Validate landing-page inputs and store them in session state.
@@ -74,7 +30,7 @@ def _apply_landing_form_submission(
         product_description: The submitted product description.
         risk_description: The submitted risk description.
         api_key: The submitted API key.
-        model_info: The selected known model or custom model ID.
+        selected_model: The selectbox value (known ``ModelInfo`` or custom model ID).
         proxy_value: The submitted proxy address, empty when the user left it blank.
 
     Returns:
@@ -93,12 +49,13 @@ def _apply_landing_form_submission(
         st.error("Please enter an API key before proceeding.")
         return False
 
-    if model_info is None or (isinstance(model_info, str) and not model_info.strip()):
+    if selected_model is None or (isinstance(selected_model, str) and not selected_model.strip()):
         st.error("Please select a model before proceeding.")
         return False
 
+    model_id = selected_model.model_id if isinstance(selected_model, ModelInfo) else selected_model.strip()
     try:
-        resolved_model, resolved_proxy = resolve_submitted_proxy(model_info, proxy_value)
+        model_id, provider_url = resolve_model_and_provider_url(model_id, proxy_value)
     except ValueError as e:
         st.error(str(e))
         return False
@@ -106,8 +63,8 @@ def _apply_landing_form_submission(
     st.session_state.product_description = product_description
     st.session_state.risk_description = risk_description
     st.session_state.api_key = api_key
-    st.session_state.proxy_base_url = resolved_proxy
-    st.session_state.model_info = resolved_model
+    st.session_state.model_id = model_id
+    st.session_state.provider_url = provider_url
     return True
 
 
@@ -121,8 +78,8 @@ def main() -> None:
 
     # Session state
     api_key = st.session_state.get("api_key", "")
-    model_info = st.session_state.get("model_info", ModelInfo.OPENAI_GPT_4O)
-    proxy_base_url = st.session_state.get("proxy_base_url")
+    model_id = st.session_state.get("model_id")
+    provider_url = st.session_state.get("provider_url")
     risk_description = st.session_state.get("risk_description", "")
     product_description = st.session_state.get("product_description", "")
     follow_up_questions = st.session_state.get("follow_up_questions", None)
@@ -130,7 +87,7 @@ def main() -> None:
     systematized_concepts = st.session_state.get("systematized_concepts", None)
 
     # Rendering the landing page
-    if not model_info or not api_key or not product_description or not risk_description:
+    if not model_id or not api_key or not product_description or not risk_description:
         render_landing_page()
         render_upload_button()
 
@@ -138,13 +95,16 @@ def main() -> None:
     elif systematization_answers is None:
         # Generate questions if not already generated
         if follow_up_questions is None or len(follow_up_questions) == 0:
+            if not provider_url:
+                st.error("Missing provider URL. Please start over from the landing page.")
+                return
             with st.spinner("Generating questions..."):
                 follow_up_questions = get_systematization_questions(
                     product_description=product_description,
                     risk_description=risk_description,
                     api_key=api_key,
-                    model_info=model_info,
-                    proxy_base_url=proxy_base_url,
+                    model_id=model_id,
+                    provider_url=provider_url,
                 )
 
         if follow_up_questions is None or len(follow_up_questions) == 0:
@@ -158,6 +118,9 @@ def main() -> None:
     # Generating and rendering the systematized concepts
     else:
         if systematized_concepts is None:
+            if not provider_url:
+                st.error("Missing provider URL. Please start over from the landing page.")
+                return
             # Answers have been submitted, generate and display systematized concepts
             with st.spinner("Generating systematized concepts..."):
                 systematized_concepts = get_systematized_concepts(
@@ -166,8 +129,8 @@ def main() -> None:
                     questions=follow_up_questions,
                     answers=systematization_answers,
                     api_key=api_key,
-                    model_info=model_info,
-                    proxy_base_url=proxy_base_url,
+                    model_id=model_id,
+                    provider_url=provider_url,
                 )
 
         if systematized_concepts is None:
@@ -245,9 +208,8 @@ def render_landing_page() -> None:
                 label="Proxy address",
                 placeholder="Type your proxy address",
                 help=(
-                    "OpenAI-compatible base URL. Leave it blank for known models to use their "
-                    "provider default. Required for custom model IDs. Power users can point it at "
-                    f"their own proxy (e.g. Vector: {DEFAULT_PROXY_BASE_URL}). Validated only when non-empty."
+                    "OpenAI-compatible base URL. Leave blank for known models to use their "
+                    "provider default. Required for custom model IDs."
                 ),
                 key="proxy_base_url_input",
             )
@@ -328,7 +290,7 @@ def render_download_button() -> None:
     file_contents = {
         "product_description": st.session_state.product_description,
         "risk_description": st.session_state.risk_description,
-        "model_id": resolve_model_id(st.session_state.model_info),
+        "model_id": st.session_state.model_id,
         "follow_up_questions": st.session_state.follow_up_questions,
         "systematization_answers": st.session_state.systematization_answers,
         "systematized_concepts": [asdict(concept) for concept in st.session_state.systematized_concepts],
@@ -387,11 +349,9 @@ def render_upload_button() -> None:
     # we're restoring saved results and don't need to make new API calls at this stage
     st.session_state.api_key = "placeholder-key"
     saved_model_id = saved_results.get("model_id")
-    if saved_model_id:
-        known = ModelInfo.from_model_id(str(saved_model_id))
-        st.session_state.model_info = known if known is not None else str(saved_model_id)
-    else:
-        st.session_state.model_info = ModelInfo.OPENAI_GPT_4O
+    st.session_state.model_id = str(saved_model_id) if saved_model_id else ModelInfo.OPENAI_GPT_4O.model_id
+    # Do not invent provider_url on upload — results path does not need it; regenerating
+    # questions will re-ask for model/proxy on the landing page.
     st.session_state.follow_up_questions = saved_results["follow_up_questions"]
     st.session_state.systematization_answers = saved_results["systematization_answers"]
     st.session_state.systematized_concepts = [

@@ -8,7 +8,7 @@ from aspis.systematization import SYSTEMATIZATION_PAPER_PATH, SYSTEMATIZATION_PR
 
 def run_inferencer_manual_test() -> None:
     """Run the inferencer manual test."""
-    model_info = ModelInfo.GOOGLE_GEMINI_3_FLASH_PREVIEW
+    model = ModelInfo.GOOGLE_GEMINI_3_FLASH_PREVIEW
     api_key = os.getenv("ASPIS_API_KEY") or os.getenv("OPENAI_API_KEY")
     assert api_key is not None, "Set ASPIS_API_KEY or OPENAI_API_KEY before running this manual test"
 
@@ -18,7 +18,12 @@ def run_inferencer_manual_test() -> None:
         systematization_paper=SYSTEMATIZATION_PAPER_PATH.read_text(),
     )
 
-    model_outputs = execute_samples_against_model([prompt], model_info, api_key)
+    model_outputs = execute_samples_against_model(
+        [prompt],
+        model.model_id,
+        api_key,
+        model.provider_url,
+    )
 
     print(model_outputs)
 

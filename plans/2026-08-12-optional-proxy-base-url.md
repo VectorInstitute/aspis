@@ -18,7 +18,8 @@ Surface an optional `proxy_base_url` (“Proxy address”) in the UI and API so 
    | Google    | `https://generativelanguage.googleapis.com/v1beta/openai/` |
    | Anthropic | `https://api.anthropic.com/v1/` |
 
-3. **Resolution order:** non-empty request `proxy_base_url` → else `ASPIS_OPENAI_BASE_URL` (deploy override) → else provider default from known model.
+3. **Resolution order:** non-empty request `proxy_base_url` → else provider default from known model.
+   *(Review follow-up: the `ASPIS_OPENAI_BASE_URL` env override was dropped.)*
 4. **Vector is a power-user override:** expand advanced settings and set `proxy_base_url` to `https://proxy.vectorinstitute.ai/v1` with a Vector key.
 5. **Field name:** `proxy_base_url` / label “Proxy address”.
 6. **UI:** proxy field collapsed by default inside a “Proxy details” expander, always empty (placeholder “Type your proxy address”). Validate URL only when the field is non-empty (no host allowlist). See “Final UI decisions” below — there is no prefill.
@@ -53,11 +54,8 @@ These supersede the UI parts of decisions 6 and 7 above.
 
 ### 1. Core (`inferencer.py`)
 
-- Add provider / default base URL metadata on `ModelInfo` (or a small adjacent map).
-- Keep `DEFAULT_PROXY_BASE_URL` / Vector URL available as a known constant for power users / docs in code comments if still useful; stop using Vector as the implicit public default when a known model is selected.
-- Extend `create_openai_client` (and call chain: `execute_samples_against_model`, `evaluate_text`, systematization helpers) with optional `proxy_base_url: str | None`.
-- Resolve effective base URL per the order above.
-- Accept model as known `ModelInfo` or free-form `model_id: str` as needed by API/UI wiring.
+- Put `provider_url` on each `ModelInfo` member; resolve via shared `resolve_model_and_provider_url`.
+- Core call chain takes plain `model_id: str` + required `provider_url: str` (no env override — dropped per review).
 
 ### 2. API (`api/main.py`)
 
@@ -75,7 +73,7 @@ These supersede the UI parts of decisions 6 and 7 above.
 
 ### 4. Tests
 
-- Provider default resolution, env override, per-request override.
+- Provider default resolution and per-request override (env override dropped per review).
 - Custom model requires proxy (UI + API).
 - Enum-matching model allows omitted proxy (API).
 - Empty proxy skips validation; non-empty invalid URL rejected.

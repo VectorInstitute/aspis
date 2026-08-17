@@ -8,7 +8,7 @@ import yaml
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from aspis.inferencer import ModelInfo, evaluate_text, get_inference_prompt, validate_proxy_base_url
+from aspis.inferencer import ModelInfo, evaluate_text, get_inference_prompt, resolve_model_and_provider_url
 from aspis.logging import logger
 
 
@@ -31,14 +31,6 @@ class EvaluationResponse(BaseModel):
     prompt: str
 
 
-def _normalize_optional_proxy(proxy_base_url: str | None) -> str | None:
-    """Return a stripped proxy URL, or None when empty/absent."""
-    if proxy_base_url is None:
-        return None
-    stripped = proxy_base_url.strip()
-    return stripped or None
-
-
 @app.post("/evaluate_from_file")
 async def evaluate(
     text_to_evaluate: str = Form(...),
@@ -55,14 +47,13 @@ async def evaluate(
         text_to_evaluate: The text to evaluate.
         api_key: The API key to use to connect to the model.
         model: The model ID to use for this evaluation. Optional,
-            defaults to `gpt-4o`. Known values include `gpt-4o`,
+            defaults to `gpt-4o`. natively supported model IDs are `gpt-4o`,
             `gpt-5.5`, `gpt-5.4-mini`, `gemini-3.1-pro-preview`,
             `gemini-3-flash-preview`, `claude-opus-4-7`, and
             `claude-sonnet-4-6`. Custom model IDs are allowed when
             `proxy_base_url` is provided.
         proxy_base_url: Optional OpenAI-compatible base URL override.
             Required when `model` is not an exact match for a known model.
-            Validated as a URL only when non-empty.
         systematized_concepts_file: The file containing the systematized concepts.
             It must be a `.yaml` file that contains a `systematized_concepts` key
             with a list of systematized concepts. Each systematized concept must
@@ -79,23 +70,11 @@ async def evaluate(
             in the file.
     """
     try:
-        normalized_proxy = _normalize_optional_proxy(proxy_base_url)
-        if normalized_proxy is not None:
-            try:
-                validate_proxy_base_url(normalized_proxy)
-            except ValueError as e:
-                raise HTTPException(status_code=422, detail=str(e)) from e
+        model_id, provider_url = resolve_model_and_provider_url(model, proxy_base_url)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
-        model = model.strip()
-        known_model = ModelInfo.from_model_id(model)
-        if known_model is None and normalized_proxy is None:
-            raise HTTPException(
-                status_code=422,
-                detail="proxy_base_url is required when model is not a known ModelInfo value",
-            )
-
-        model_for_eval: ModelInfo | str = known_model if known_model is not None else model
-
+    try:
         file_content = await systematized_concepts_file.read()
         file_text = file_content.decode("utf-8")
 
@@ -122,9 +101,9 @@ async def evaluate(
             evaluate_text,
             text_to_evaluate,
             prompt_templates,
-            model_for_eval,
+            model_id,
             api_key,
-            normalized_proxy,
+            provider_url,
         )
 
         evaluation_responses = []
@@ -139,8 +118,6 @@ async def evaluate(
 
         return evaluation_responses
 
-    except HTTPException:
-        raise
     except AssertionError as e:
         logger.exception("Assertion error during evaluation: %s", e)
         raise HTTPException(status_code=422, detail=str(e)) from e

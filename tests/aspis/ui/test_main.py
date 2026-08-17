@@ -11,22 +11,19 @@ import pytest
 import yaml
 from streamlit.testing.v1 import AppTest
 
-from aspis.inferencer import DEFAULT_OPENAI_TIMEOUT_SECONDS, ModelInfo
+from aspis.inferencer import DEFAULT_OPENAI_TIMEOUT_SECONDS, ModelInfo, resolve_model_and_provider_url
 from aspis.systematization import (
     SystematizedConcept,
     get_systematization_questions_prompt,
     get_systematized_concepts_prompt,
 )
-from aspis.ui.main import (
-    _apply_landing_form_submission,
-    resolve_submitted_proxy,
-)
+from aspis.ui.main import _apply_landing_form_submission
 
 
 def make_openai_side_effect(api_key: str, return_value: Any) -> Callable[..., Mock]:
     def side_effect(*args: Any, **kwargs: Any) -> Mock:
         assert kwargs.get("api_key") == api_key
-        assert kwargs.get("base_url") == ModelInfo.OPENAI_GPT_4O.default_proxy_base_url
+        assert kwargs.get("base_url") == ModelInfo.OPENAI_GPT_4O.provider_url
         assert kwargs.get("timeout") == DEFAULT_OPENAI_TIMEOUT_SECONDS
 
         mock_client = Mock()
@@ -49,7 +46,7 @@ def test_main_render_inputs_when_empty(mock_openai: Mock) -> None:
     assert len(app.exception) == 0
     assert app.title[0].value == "🛡️ Aspis"
     assert "api_key" not in app.session_state
-    assert "model_info" not in app.session_state
+    assert "model_id" not in app.session_state
     assert "risk_description" not in app.session_state
     assert "product_description" not in app.session_state
 
@@ -73,7 +70,7 @@ def test_main_render_inputs_when_empty(mock_openai: Mock) -> None:
 def test_main_ask_for_questions_when_inputs_are_set(mock_openai: Mock) -> None:
     test_questions = ["test question"]
     test_api_key = "test api key"
-    test_model_info = ModelInfo.OPENAI_GPT_4O
+    test_model = ModelInfo.OPENAI_GPT_4O
     test_risk_description = "test risk description"
     test_product_description = "test product description"
 
@@ -81,7 +78,7 @@ def test_main_ask_for_questions_when_inputs_are_set(mock_openai: Mock) -> None:
 
     def side_effect(*args: Any, **kwargs: Any) -> Mock:
         assert kwargs.get("api_key") == test_api_key
-        assert kwargs.get("base_url") == ModelInfo.OPENAI_GPT_4O.default_proxy_base_url
+        assert kwargs.get("base_url") == ModelInfo.OPENAI_GPT_4O.provider_url
         assert kwargs.get("timeout") == DEFAULT_OPENAI_TIMEOUT_SECONDS
         mock_client = Mock()
         mock_client.__enter__ = Mock(return_value=mock_client)
@@ -97,7 +94,8 @@ def test_main_ask_for_questions_when_inputs_are_set(mock_openai: Mock) -> None:
     app = AppTest.from_file("src/aspis/ui/main.py")
 
     app.session_state.api_key = test_api_key
-    app.session_state.model_info = test_model_info
+    app.session_state.model_id = test_model.model_id
+    app.session_state.provider_url = test_model.provider_url
     app.session_state.risk_description = test_risk_description
     app.session_state.product_description = test_product_description
 
@@ -107,12 +105,12 @@ def test_main_ask_for_questions_when_inputs_are_set(mock_openai: Mock) -> None:
     assert mock_openai.call_count == 1
     mock_openai.assert_called_once_with(
         api_key=test_api_key,
-        base_url=ModelInfo.OPENAI_GPT_4O.default_proxy_base_url,
+        base_url=ModelInfo.OPENAI_GPT_4O.provider_url,
         timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
     )
     assert len(created_clients) == 1
     created_clients[0].chat.completions.create.assert_called_once_with(
-        model=test_model_info.model_id,
+        model=test_model.model_id,
         messages=[
             {
                 "role": "user",
@@ -128,13 +126,13 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_openai: Mock) -
     test_api_key = "test api key"
     test_risk_description = "test risk description"
     test_product_description = "test product description"
-    test_model_info = ModelInfo.OPENAI_GPT_4O
+    test_model = ModelInfo.OPENAI_GPT_4O
     mock_openai.side_effect = make_openai_side_effect(test_api_key, ["test question"])
 
     # Empty API key
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
-    app.selectbox("model_info_input").set_value(test_model_info)
+    app.selectbox("model_info_input").set_value(test_model)
     app.text_input("api_key_input").set_value("")
     app.text_area("product_description_input").set_value(test_product_description)
     app.text_area("risk_description_input").set_value(test_risk_description)
@@ -147,7 +145,7 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_openai: Mock) -
     # Empty risk description
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
-    app.selectbox("model_info_input").set_value(test_model_info)
+    app.selectbox("model_info_input").set_value(test_model)
     app.text_input("api_key_input").set_value(test_api_key)
     app.text_area("risk_description_input").set_value("")
     app.text_area("product_description_input").set_value(test_product_description)
@@ -172,7 +170,7 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_openai: Mock) -
     # All inputs are set
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
-    app.selectbox("model_info_input").set_value(test_model_info)
+    app.selectbox("model_info_input").set_value(test_model)
     app.text_input("api_key_input").set_value(test_api_key)
     app.text_area("risk_description_input").set_value(test_risk_description)
     app.text_area("product_description_input").set_value(test_product_description)
@@ -185,12 +183,12 @@ def test_main_render_error_messages_when_inputs_are_not_set(mock_openai: Mock) -
     assert len(app.exception) == 0
     assert len(app.error) == 0
     assert app.session_state.api_key == test_api_key
-    assert app.session_state.model_info == test_model_info
+    assert app.session_state.model_id == test_model.model_id
     assert app.session_state.risk_description == test_risk_description
     assert app.session_state.product_description == test_product_description
     mock_openai.assert_called_once_with(
         api_key=test_api_key,
-        base_url=ModelInfo.OPENAI_GPT_4O.default_proxy_base_url,
+        base_url=ModelInfo.OPENAI_GPT_4O.provider_url,
         timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
     )
 
@@ -201,13 +199,13 @@ def test_main_render_error_when_questions_are_none(mock_openai: Mock) -> None:
     test_api_key = "test api key"
     test_risk_description = "test risk description"
     test_product_description = "test product description"
-    test_model_info = ModelInfo.OPENAI_GPT_4O
+    test_model = ModelInfo.OPENAI_GPT_4O
     mock_openai.side_effect = make_openai_side_effect(test_api_key, None)
 
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
-    app.selectbox("model_info_input").set_value(test_model_info)
+    app.selectbox("model_info_input").set_value(test_model)
     app.text_input("api_key_input").set_value(test_api_key)
     app.text_area("risk_description_input").set_value(test_risk_description)
     app.text_area("product_description_input").set_value(test_product_description)
@@ -218,7 +216,7 @@ def test_main_render_error_when_questions_are_none(mock_openai: Mock) -> None:
     assert mock_openai.call_count == 1
     mock_openai.assert_called_once_with(
         api_key=test_api_key,
-        base_url=ModelInfo.OPENAI_GPT_4O.default_proxy_base_url,
+        base_url=ModelInfo.OPENAI_GPT_4O.provider_url,
         timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
     )
     assert app.error[0].value == "Error generating questions. Please try again."
@@ -229,7 +227,7 @@ def test_main_render_error_when_questions_are_none(mock_openai: Mock) -> None:
 def test_main_render_questions_on_success(mock_openai: Mock) -> None:
     test_questions = ["test question 1", "test question 2"]
     test_api_key = "test api key"
-    test_model_info = ModelInfo.OPENAI_GPT_4O
+    test_model = ModelInfo.OPENAI_GPT_4O
     test_product_description = "test product description"
     test_risk_description = "test risk description"
 
@@ -237,7 +235,7 @@ def test_main_render_questions_on_success(mock_openai: Mock) -> None:
 
     def side_effect(*args: Any, **kwargs: Any) -> Mock:
         assert kwargs.get("api_key") == test_api_key
-        assert kwargs.get("base_url") == ModelInfo.OPENAI_GPT_4O.default_proxy_base_url
+        assert kwargs.get("base_url") == ModelInfo.OPENAI_GPT_4O.provider_url
         assert kwargs.get("timeout") == DEFAULT_OPENAI_TIMEOUT_SECONDS
         mock_client = Mock()
         mock_client.__enter__ = Mock(return_value=mock_client)
@@ -253,7 +251,7 @@ def test_main_render_questions_on_success(mock_openai: Mock) -> None:
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
-    app.selectbox("model_info_input").set_value(test_model_info)
+    app.selectbox("model_info_input").set_value(test_model)
     app.text_input("api_key_input").set_value(test_api_key)
     app.text_area("product_description_input").set_value(test_product_description)
     app.text_area("risk_description_input").set_value(test_risk_description)
@@ -264,12 +262,12 @@ def test_main_render_questions_on_success(mock_openai: Mock) -> None:
     assert len(app.exception) == 0
     mock_openai.assert_called_once_with(
         api_key=test_api_key,
-        base_url=ModelInfo.OPENAI_GPT_4O.default_proxy_base_url,
+        base_url=ModelInfo.OPENAI_GPT_4O.provider_url,
         timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
     )
     assert len(created_clients) == 1
     created_clients[0].chat.completions.create.assert_called_once_with(
-        model=test_model_info.model_id,
+        model=test_model.model_id,
         messages=[
             {
                 "role": "user",
@@ -289,12 +287,13 @@ def test_main_error_when_answers_are_empty(mock_openai: Mock) -> None:
     test_api_key = "test api key"
     test_risk_description = "test risk description"
     test_product_description = "test product description"
-    test_model_info = ModelInfo.OPENAI_GPT_4O
+    test_model = ModelInfo.OPENAI_GPT_4O
     mock_openai.side_effect = make_openai_side_effect(test_api_key, test_questions)
 
     app = AppTest.from_file("src/aspis/ui/main.py")
 
-    app.session_state.model_info = test_model_info
+    app.session_state.model_id = test_model.model_id
+    app.session_state.provider_url = test_model.provider_url
     app.session_state.api_key = test_api_key
     app.session_state.risk_description = test_risk_description
     app.session_state.product_description = test_product_description
@@ -312,7 +311,7 @@ def test_main_error_when_answers_are_empty(mock_openai: Mock) -> None:
 @patch("aspis.inferencer.OpenAI")
 def test_main_saves_answers_on_success(mock_openai: Mock) -> None:
     test_api_key = "test api key"
-    test_model_info = ModelInfo.OPENAI_GPT_4O
+    test_model = ModelInfo.OPENAI_GPT_4O
     test_risk_description = "test risk description"
     test_product_description = "test product description"
     test_questions = ["test question 1", "test question 2"]
@@ -332,7 +331,8 @@ def test_main_saves_answers_on_success(mock_openai: Mock) -> None:
 
     app = AppTest.from_file("src/aspis/ui/main.py")
 
-    app.session_state.model_info = test_model_info
+    app.session_state.model_id = test_model.model_id
+    app.session_state.provider_url = test_model.provider_url
     app.session_state.api_key = test_api_key
     app.session_state.risk_description = test_risk_description
     app.session_state.product_description = test_product_description
@@ -358,7 +358,7 @@ def test_main_render_results_when_answers_are_set(mock_openai: Mock) -> None:
     test_product_description = "test product description"
     test_risk_description = "test risk description"
     test_api_key = "test api key"
-    test_model_info = ModelInfo.OPENAI_GPT_4O
+    test_model = ModelInfo.OPENAI_GPT_4O
 
     test_questions = ["test question 1", "test question 2"]
     test_answers = ["test answer to question 1", "test answer to question 2"]
@@ -379,7 +379,7 @@ def test_main_render_results_when_answers_are_set(mock_openai: Mock) -> None:
 
     def side_effect(*args: Any, **kwargs: Any) -> Mock:
         assert kwargs.get("api_key") == test_api_key
-        assert kwargs.get("base_url") == ModelInfo.OPENAI_GPT_4O.default_proxy_base_url
+        assert kwargs.get("base_url") == ModelInfo.OPENAI_GPT_4O.provider_url
         assert kwargs.get("timeout") == DEFAULT_OPENAI_TIMEOUT_SECONDS
         mock_client = Mock()
         mock_client.__enter__ = Mock(return_value=mock_client)
@@ -392,7 +392,8 @@ def test_main_render_results_when_answers_are_set(mock_openai: Mock) -> None:
 
     app = AppTest.from_file("src/aspis/ui/main.py")
 
-    app.session_state.model_info = test_model_info
+    app.session_state.model_id = test_model.model_id
+    app.session_state.provider_url = test_model.provider_url
     app.session_state.api_key = test_api_key
     app.session_state.risk_description = test_risk_description
     app.session_state.product_description = test_product_description
@@ -419,12 +420,12 @@ def test_main_render_results_when_answers_are_set(mock_openai: Mock) -> None:
     assert mock_openai.call_count == 1
     mock_openai.assert_called_with(
         api_key=test_api_key,
-        base_url=ModelInfo.OPENAI_GPT_4O.default_proxy_base_url,
+        base_url=ModelInfo.OPENAI_GPT_4O.provider_url,
         timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
     )
     assert len(created_clients) == 1
     created_clients[0].chat.completions.create.assert_called_once_with(
-        model=test_model_info.model_id,
+        model=test_model.model_id,
         messages=[
             {
                 "role": "user",
@@ -445,14 +446,15 @@ def test_main_render_error_when_systematized_concepts_are_none(mock_openai: Mock
     test_product_description = "test product description"
     test_risk_description = "test risk description"
     test_api_key = "test api key"
-    test_model_info = ModelInfo.OPENAI_GPT_4O
+    test_model = ModelInfo.OPENAI_GPT_4O
 
     test_questions = ["test question 1", "test question 2"]
     test_answers = ["test answer to question 1", "test answer to question 2"]
 
     app = AppTest.from_file("src/aspis/ui/main.py")
 
-    app.session_state.model_info = test_model_info
+    app.session_state.model_id = test_model.model_id
+    app.session_state.provider_url = test_model.provider_url
     app.session_state.api_key = test_api_key
     app.session_state.risk_description = test_risk_description
     app.session_state.product_description = test_product_description
@@ -470,7 +472,7 @@ def test_main_render_error_when_systematized_concepts_are_none(mock_openai: Mock
 
     mock_openai.assert_called_once_with(
         api_key=test_api_key,
-        base_url=ModelInfo.OPENAI_GPT_4O.default_proxy_base_url,
+        base_url=ModelInfo.OPENAI_GPT_4O.provider_url,
         timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
     )
 
@@ -508,7 +510,7 @@ def test_main_upload_file_success(mock_file_uploader: Mock, mock_download_button
     assert len(app.exception) == 0
     assert app.session_state.product_description == test_yaml_data["product_description"]
     assert app.session_state.risk_description == test_yaml_data["risk_description"]
-    assert app.session_state.model_info == ModelInfo.OPENAI_GPT_4O
+    assert app.session_state.model_id == ModelInfo.OPENAI_GPT_4O.model_id
     assert app.session_state.follow_up_questions == test_yaml_data["follow_up_questions"]
     assert app.session_state.systematization_answers == test_yaml_data["systematization_answers"]
     assert app.session_state.systematized_concepts == test_systematized_concepts
@@ -593,7 +595,8 @@ def test_main_download_button(mock_download_button: Mock) -> None:
     app = AppTest.from_file("src/aspis/ui/main.py")
 
     app.session_state.api_key = "test api key"
-    app.session_state.model_info = ModelInfo.OPENAI_GPT_4O
+    app.session_state.model_id = ModelInfo.OPENAI_GPT_4O.model_id
+    app.session_state.provider_url = ModelInfo.OPENAI_GPT_4O.provider_url
     app.session_state.product_description = "test product description"
     app.session_state.risk_description = "test risk description"
     app.session_state.follow_up_questions = ["test question 1", "test question 2"]
@@ -678,8 +681,8 @@ def test_main_failed_proxy_validation_does_not_persist_inputs(mock_openai: Mock)
     app.run()
 
     assert app.error[0].value == "Please enter a valid proxy address URL (http or https)."
-    assert "model_info" not in app.session_state
-    assert "proxy_base_url" not in app.session_state
+    assert "model_id" not in app.session_state
+    assert "provider_url" not in app.session_state
     assert_landing_page_rendered_without_inputs(app)
     mock_openai.assert_not_called()
 
@@ -704,7 +707,7 @@ class FakeSessionState(dict):  # type: ignore[type-arg]
 
 
 def submit_landing_form(
-    model_info: ModelInfo | str | None,
+    selected_model: ModelInfo | str | None,
     proxy_input: str,
     product_description: str = "test product description",
     risk_description: str = "test risk description",
@@ -718,7 +721,7 @@ def submit_landing_form(
         mock_st.session_state = session_state
         mock_st.error.side_effect = errors.append
         accepted = _apply_landing_form_submission(
-            product_description, risk_description, api_key, model_info, proxy_input
+            product_description, risk_description, api_key, selected_model, proxy_input
         )
 
     return accepted, session_state, errors
@@ -726,7 +729,7 @@ def submit_landing_form(
 
 def assert_nothing_persisted(session_state: FakeSessionState) -> None:
     """Assert a rejected submission left no landing-page value in session state."""
-    for key in ("product_description", "risk_description", "api_key", "model_info", "proxy_base_url"):
+    for key in ("product_description", "risk_description", "api_key", "model_id", "provider_url"):
         assert key not in session_state
 
 
@@ -759,8 +762,8 @@ def test_apply_landing_form_submission_known_model_without_proxy_accepted() -> N
 
     assert accepted is True
     assert errors == []
-    assert session_state["model_info"] == ModelInfo.OPENAI_GPT_4O
-    assert session_state["proxy_base_url"] is None
+    assert session_state["model_id"] == ModelInfo.OPENAI_GPT_4O.model_id
+    assert session_state["provider_url"] == ModelInfo.OPENAI_GPT_4O.provider_url
 
 
 def test_apply_landing_form_submission_known_model_with_valid_proxy_accepted() -> None:
@@ -770,8 +773,8 @@ def test_apply_landing_form_submission_known_model_with_valid_proxy_accepted() -
 
     assert accepted is True
     assert errors == []
-    assert session_state["model_info"] == ModelInfo.OPENAI_GPT_4O
-    assert session_state["proxy_base_url"] == "https://proxy.vectorinstitute.ai/v1"
+    assert session_state["model_id"] == ModelInfo.OPENAI_GPT_4O.model_id
+    assert session_state["provider_url"] == "https://proxy.vectorinstitute.ai/v1"
 
 
 def test_apply_landing_form_submission_custom_model_with_valid_proxy_accepted() -> None:
@@ -779,8 +782,8 @@ def test_apply_landing_form_submission_custom_model_with_valid_proxy_accepted() 
 
     assert accepted is True
     assert errors == []
-    assert session_state["model_info"] == "my-custom-model"
-    assert session_state["proxy_base_url"] == "https://proxy.vectorinstitute.ai/v1"
+    assert session_state["model_id"] == "my-custom-model"
+    assert session_state["provider_url"] == "https://proxy.vectorinstitute.ai/v1"
     assert session_state["product_description"] == "test product description"
     assert session_state["risk_description"] == "test risk description"
     assert session_state["api_key"] == "test api key"
@@ -832,11 +835,11 @@ def test_main_known_model_with_empty_proxy_uses_provider_default(mock_openai: Mo
 
     assert len(app.exception) == 0
     assert len(app.error) == 0
-    assert app.session_state.proxy_base_url is None
-    assert app.session_state.model_info == ModelInfo.OPENAI_GPT_4O
+    assert app.session_state.provider_url == ModelInfo.OPENAI_GPT_4O.provider_url
+    assert app.session_state.model_id == ModelInfo.OPENAI_GPT_4O.model_id
     mock_openai.assert_called_once_with(
         api_key=test_api_key,
-        base_url=ModelInfo.OPENAI_GPT_4O.default_proxy_base_url,
+        base_url=ModelInfo.OPENAI_GPT_4O.provider_url,
         timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
     )
 
@@ -873,7 +876,7 @@ def test_main_known_model_with_custom_proxy(mock_openai: Mock) -> None:
 
     assert len(app.exception) == 0
     assert len(app.error) == 0
-    assert app.session_state.proxy_base_url == test_proxy
+    assert app.session_state.provider_url == test_proxy
     mock_openai.assert_called_once_with(
         api_key=test_api_key,
         base_url=test_proxy,
@@ -899,38 +902,40 @@ def test_landing_page_inputs_are_inside_the_form() -> None:
     assert app.text_area("risk_description_input").form_id == form_id
 
 
-def test_resolve_submitted_proxy_known_model_defaults() -> None:
-    model, proxy = resolve_submitted_proxy(ModelInfo.OPENAI_GPT_4O, "")
-    assert model == ModelInfo.OPENAI_GPT_4O
-    assert proxy is None
+def test_resolve_model_and_provider_url_known_model_defaults_from_ui() -> None:
+    model_id, provider_url = resolve_model_and_provider_url(ModelInfo.OPENAI_GPT_4O.model_id, "")
+    assert model_id == ModelInfo.OPENAI_GPT_4O.model_id
+    assert provider_url == ModelInfo.OPENAI_GPT_4O.provider_url
 
 
-def test_resolve_submitted_proxy_known_model_id_string_defaults() -> None:
-    model, proxy = resolve_submitted_proxy(ModelInfo.GOOGLE_GEMINI_3_FLASH_PREVIEW.model_id, "")
-    assert model == ModelInfo.GOOGLE_GEMINI_3_FLASH_PREVIEW
-    assert proxy is None
+def test_resolve_model_and_provider_url_known_model_id_string_defaults_from_ui() -> None:
+    model_id, provider_url = resolve_model_and_provider_url(ModelInfo.GOOGLE_GEMINI_3_FLASH_PREVIEW.model_id, "")
+    assert model_id == ModelInfo.GOOGLE_GEMINI_3_FLASH_PREVIEW.model_id
+    assert provider_url == ModelInfo.GOOGLE_GEMINI_3_FLASH_PREVIEW.provider_url
 
 
-def test_resolve_submitted_proxy_known_model_override() -> None:
-    model, proxy = resolve_submitted_proxy(ModelInfo.OPENAI_GPT_4O, "https://proxy.vectorinstitute.ai/v1")
-    assert model == ModelInfo.OPENAI_GPT_4O
-    assert proxy == "https://proxy.vectorinstitute.ai/v1"
+def test_resolve_model_and_provider_url_known_model_override_from_ui() -> None:
+    model_id, provider_url = resolve_model_and_provider_url(
+        ModelInfo.OPENAI_GPT_4O.model_id, "https://proxy.vectorinstitute.ai/v1"
+    )
+    assert model_id == ModelInfo.OPENAI_GPT_4O.model_id
+    assert provider_url == "https://proxy.vectorinstitute.ai/v1"
 
 
-def test_resolve_submitted_proxy_custom_model_requires_proxy() -> None:
+def test_resolve_model_and_provider_url_custom_model_requires_proxy_from_ui() -> None:
     with pytest.raises(ValueError, match="Please enter a proxy address for custom model IDs"):
-        resolve_submitted_proxy("my-custom-model", "")
+        resolve_model_and_provider_url("my-custom-model", "")
 
 
-def test_resolve_submitted_proxy_custom_model_with_proxy() -> None:
-    model, proxy = resolve_submitted_proxy("my-custom-model", "https://proxy.vectorinstitute.ai/v1")
-    assert model == "my-custom-model"
-    assert proxy == "https://proxy.vectorinstitute.ai/v1"
+def test_resolve_model_and_provider_url_custom_model_with_proxy_from_ui() -> None:
+    model_id, provider_url = resolve_model_and_provider_url("my-custom-model", "https://proxy.vectorinstitute.ai/v1")
+    assert model_id == "my-custom-model"
+    assert provider_url == "https://proxy.vectorinstitute.ai/v1"
 
 
-def test_resolve_submitted_proxy_rejects_invalid_url() -> None:
+def test_resolve_model_and_provider_url_rejects_invalid_url_from_ui() -> None:
     with pytest.raises(ValueError, match="Please enter a valid proxy address URL"):
-        resolve_submitted_proxy(ModelInfo.OPENAI_GPT_4O, "not-a-url")
+        resolve_model_and_provider_url(ModelInfo.OPENAI_GPT_4O.model_id, "not-a-url")
 
 
 @patch("aspis.ui.main.st.download_button")
@@ -958,7 +963,7 @@ def test_main_upload_restores_optional_model_id(mock_file_uploader: Mock, mock_d
     app.run()
 
     assert len(app.exception) == 0
-    assert app.session_state.model_info == ModelInfo.GOOGLE_GEMINI_3_FLASH_PREVIEW
+    assert app.session_state.model_id == ModelInfo.GOOGLE_GEMINI_3_FLASH_PREVIEW.model_id
     assert app.session_state.systematized_concepts == test_systematized_concepts
 
 
@@ -987,7 +992,7 @@ def test_main_upload_restores_custom_model_id(mock_file_uploader: Mock, mock_dow
     app.run()
 
     assert len(app.exception) == 0
-    assert app.session_state.model_info == "my-custom-model"
+    assert app.session_state.model_id == "my-custom-model"
     assert app.session_state.systematized_concepts == test_systematized_concepts
     mock_download_button.assert_called_with(
         label="⬇️ Download results",

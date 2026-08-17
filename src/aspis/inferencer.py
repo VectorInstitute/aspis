@@ -1,7 +1,6 @@
 """Scorer for applications using Aspis as an LLM-as-a-judge."""
 
 import json
-import os
 from enum import Enum
 from typing import Any, Self
 from urllib.parse import urlparse
@@ -12,27 +11,10 @@ from aspis.logging import logger
 from aspis.utils import clean_model_output
 
 
-# Power-user override (e.g. Vector). Not used as the public default for known models.
-DEFAULT_PROXY_BASE_URL = "https://proxy.vectorinstitute.ai/v1"
 DEFAULT_OPENAI_TIMEOUT_SECONDS = 120.0
 
 # Content part types that are reasoning / thinking (not the final answer).
 _REASONING_PART_TYPES = frozenset({"reasoning", "thinking", "reasoning_content"})
-
-
-class Provider(str, Enum):
-    """LLM provider for OpenAI-compatible endpoints."""
-
-    OPENAI = "openai"
-    GOOGLE = "google"
-    ANTHROPIC = "anthropic"
-
-
-PROVIDER_DEFAULT_BASE_URLS: dict[Provider, str] = {
-    Provider.OPENAI: "https://api.openai.com/v1",
-    Provider.GOOGLE: "https://generativelanguage.googleapis.com/v1beta/openai/",
-    Provider.ANTHROPIC: "https://api.anthropic.com/v1/",
-}
 
 
 class ModelInfo(str, Enum):
@@ -40,17 +22,29 @@ class ModelInfo(str, Enum):
 
     model_id: str
     friendly_name: str
-    provider: Provider
+    provider_url: str
 
-    OPENAI_GPT_4O = ("gpt-4o", "GPT-4o (OpenAI)", Provider.OPENAI)
-    OPENAI_GPT_5_5 = ("gpt-5.5", "GPT-5.5 (OpenAI)", Provider.OPENAI)
-    OPENAI_GPT_5_4_MINI = ("gpt-5.4-mini", "GPT-5.4-mini (OpenAI)", Provider.OPENAI)
-    GOOGLE_GEMINI_3_1_PRO_PREVIEW = ("gemini-3.1-pro-preview", "Gemini 3.1 Pro Preview (Google)", Provider.GOOGLE)
-    GOOGLE_GEMINI_3_FLASH_PREVIEW = ("gemini-3-flash-preview", "Gemini 3 Flash Preview (Google)", Provider.GOOGLE)
-    ANTHROPIC_CLAUDE_4_7_OPUS = ("claude-opus-4-7", "Claude Opus 4.7 (Anthropic)", Provider.ANTHROPIC)
-    ANTHROPIC_CLAUDE_4_6_SONNET = ("claude-sonnet-4-6", "Claude Sonnet 4.6 (Anthropic)", Provider.ANTHROPIC)
+    OPENAI_GPT_4O = ("gpt-4o", "GPT-4o (OpenAI)", "https://api.openai.com/v1")
+    OPENAI_GPT_5_5 = ("gpt-5.5", "GPT-5.5 (OpenAI)", "https://api.openai.com/v1")
+    OPENAI_GPT_5_4_MINI = ("gpt-5.4-mini", "GPT-5.4-mini (OpenAI)", "https://api.openai.com/v1")
+    GOOGLE_GEMINI_3_1_PRO_PREVIEW = (
+        "gemini-3.1-pro-preview",
+        "Gemini 3.1 Pro Preview (Google)",
+        "https://generativelanguage.googleapis.com/v1beta/openai/",
+    )
+    GOOGLE_GEMINI_3_FLASH_PREVIEW = (
+        "gemini-3-flash-preview",
+        "Gemini 3 Flash Preview (Google)",
+        "https://generativelanguage.googleapis.com/v1beta/openai/",
+    )
+    ANTHROPIC_CLAUDE_4_7_OPUS = ("claude-opus-4-7", "Claude Opus 4.7 (Anthropic)", "https://api.anthropic.com/v1/")
+    ANTHROPIC_CLAUDE_4_6_SONNET = (
+        "claude-sonnet-4-6",
+        "Claude Sonnet 4.6 (Anthropic)",
+        "https://api.anthropic.com/v1/",
+    )
 
-    def __new__(cls, model_id: str, friendly_name: str, provider: Provider) -> Self:
+    def __new__(cls, model_id: str, friendly_name: str, provider_url: str) -> Self:
         """Make a new ModelInfo enum object.
 
         The value of the enum will be the model ID.
@@ -58,13 +52,13 @@ class ModelInfo(str, Enum):
         Args:
             model_id: The ID of the model.
             friendly_name: The friendly name of the model (displayed in the UI).
-            provider: The provider that hosts this model.
+            provider_url: The OpenAI-compatible base URL for this model's provider.
         """
         obj = str.__new__(cls, model_id)
         obj._value_ = model_id
         obj.model_id = model_id
         obj.friendly_name = friendly_name
-        obj.provider = provider
+        obj.provider_url = provider_url
         return obj
 
     def __str__(self) -> str:
@@ -74,11 +68,6 @@ class ModelInfo(str, Enum):
             The friendly name of the model.
         """
         return self.friendly_name
-
-    @property
-    def default_proxy_base_url(self) -> str:
-        """Return the provider default OpenAI-compatible base URL for this model."""
-        return PROVIDER_DEFAULT_BASE_URLS[self.provider]
 
     @classmethod
     def from_model_id(cls, model_id: str) -> Self | None:
@@ -96,65 +85,55 @@ class ModelInfo(str, Enum):
         return None
 
 
-def validate_proxy_base_url(proxy_base_url: str) -> None:
-    """Validate a non-empty proxy base URL.
-
-    Empty strings are not validated; callers should skip this when the value is empty.
+def validate_provider_url(provider_url: str) -> None:
+    """Validate a non-empty provider / proxy base URL.
 
     Args:
-        proxy_base_url: The proxy base URL to validate.
+        provider_url: The provider base URL to validate.
 
     Raises:
         ValueError: If the URL is not a valid http(s) URL with a host.
     """
-    parsed = urlparse(proxy_base_url.strip())
+    parsed = urlparse(provider_url.strip())
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
-        raise ValueError(f"Invalid proxy_base_url: {proxy_base_url}")
+        raise ValueError("Please enter a valid proxy address URL (http or https).")
 
 
-def resolve_proxy_base_url(
+def resolve_model_and_provider_url(
+    model: str,
     proxy_base_url: str | None = None,
-    model: ModelInfo | str | None = None,
-) -> str:
-    """Resolve the effective OpenAI-compatible base URL.
+) -> tuple[str, str]:
+    """Return ``(model_id, provider_url)``.
 
-    Resolution order:
-    1. Non-empty request ``proxy_base_url``
-    2. ``ASPIS_OPENAI_BASE_URL`` environment variable
-    3. Provider default for a known ``ModelInfo``
+    Known models use their ``provider_url`` when proxy is empty.
+    A non-empty proxy overrides (and is URL-validated).
+    Custom model IDs require a non-empty valid proxy.
 
     Args:
-        proxy_base_url: Optional per-request override.
-        model: Known ``ModelInfo`` or free-form model ID for provider default lookup.
+        model: Model ID string (known or custom).
+        proxy_base_url: Optional OpenAI-compatible base URL override.
 
     Returns:
-        The resolved base URL.
+        A tuple of ``(model_id, provider_url)``.
 
     Raises:
-        ValueError: If no override is set and the model is not a known ``ModelInfo``.
+        ValueError: If a custom model has no proxy, or the proxy URL is invalid.
     """
-    if proxy_base_url is not None and proxy_base_url.strip():
-        return proxy_base_url.strip()
+    model_id = model.strip()
+    proxy = proxy_base_url.strip() if proxy_base_url else ""
 
-    env_url = os.environ.get("ASPIS_OPENAI_BASE_URL")
-    if env_url is not None and env_url.strip():
-        return env_url.strip()
+    if proxy:
+        validate_provider_url(proxy)
+        return model_id, proxy
 
-    model_info = model if isinstance(model, ModelInfo) else ModelInfo.from_model_id(model) if model else None
-    if model_info is not None:
-        return model_info.default_proxy_base_url
+    known_model = ModelInfo.from_model_id(model_id)
+    if known_model is not None:
+        return known_model.model_id, known_model.provider_url
 
-    raise ValueError(
-        "proxy_base_url is required when model is not a known ModelInfo value and ASPIS_OPENAI_BASE_URL is not set"
-    )
+    raise ValueError("Please enter a proxy address for custom model IDs.")
 
 
-def create_openai_client(
-    api_key: str,
-    *,
-    proxy_base_url: str | None = None,
-    model: ModelInfo | str | None = None,
-) -> OpenAI:
+def create_openai_client(api_key: str, model_id: str, provider_url: str) -> OpenAI:
     """Create a new OpenAI client for a single request.
 
     The API key is passed only to this client instance and is never written to
@@ -163,46 +142,41 @@ def create_openai_client(
 
     Args:
         api_key: The caller-provided API key.
-        proxy_base_url: Optional per-request OpenAI-compatible base URL override.
-        model: Known model or free-form model ID used to resolve the provider default.
+        model_id: The model ID this client will be used with.
+        provider_url: OpenAI-compatible base URL (already resolved).
 
     Returns:
-        A new ``OpenAI`` client pointed at the resolved base URL.
+        A new ``OpenAI`` client pointed at ``provider_url``.
     """
+    del model_id  # Accepted for call-site clarity; base URL is already resolved.
     return OpenAI(
         api_key=api_key,
-        base_url=resolve_proxy_base_url(proxy_base_url=proxy_base_url, model=model),
+        base_url=provider_url,
         timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
     )
 
 
-def resolve_model_id(model: ModelInfo | str) -> str:
-    """Return the model ID string for a known or free-form model."""
-    return model.model_id if isinstance(model, ModelInfo) else model
-
-
 def execute_samples_against_model(
     prompts: list[str],
-    model_info: ModelInfo | str,
+    model_id: str,
     api_key: str,
-    proxy_base_url: str | None = None,
+    provider_url: str,
 ) -> list[str]:
     """Executes a list of prompts against a model and returns the model outputs.
 
     Args:
         prompts: The list of prompt strings to execute against the model.
-        model_info: Known ``ModelInfo`` or free-form model ID string.
+        model_id: The model ID string to call.
         api_key: The API key to use to execute the prompts against the model.
-        proxy_base_url: Optional per-request OpenAI-compatible base URL override.
+        provider_url: OpenAI-compatible base URL (already resolved).
 
     Returns:
         The model outputs.
     """
-    model_id = resolve_model_id(model_info)
     logger.info(f"Making API call to model {model_id}...")
 
     model_outputs = []
-    with create_openai_client(api_key, proxy_base_url=proxy_base_url, model=model_info) as client:
+    with create_openai_client(api_key, model_id, provider_url) as client:
         for prompt in prompts:
             try:
                 response = client.chat.completions.create(
@@ -227,9 +201,9 @@ def execute_samples_against_model(
 def evaluate_text(
     input_text: str,
     prompt_templates: list[str],
-    model_info: ModelInfo | str,
+    model_id: str,
     api_key: str,
-    proxy_base_url: str | None = None,
+    provider_url: str,
 ) -> list[dict[str, Any]]:
     """Evaluates input text using the model and the prompt.
 
@@ -239,15 +213,15 @@ def evaluate_text(
     Args:
         input_text: The input text to infer.
         prompt_templates: The list of prompt templates to use to infer the input text.
-        model_info: Known ``ModelInfo`` or free-form model ID string.
+        model_id: The model ID string to call.
         api_key: The API key to use to connect to the model.
-        proxy_base_url: Optional per-request OpenAI-compatible base URL override.
+        provider_url: OpenAI-compatible base URL (already resolved).
 
     Returns:
         The inferred output from the model, parsed from a json to a dictionary.
     """
     prompts = [get_inference_prompt(input_text, prompt_template) for prompt_template in prompt_templates]
-    model_outputs = execute_samples_against_model(prompts, model_info, api_key, proxy_base_url=proxy_base_url)
+    model_outputs = execute_samples_against_model(prompts, model_id, api_key, provider_url)
 
     parsed_model_outputs = []
     for model_output in model_outputs:
