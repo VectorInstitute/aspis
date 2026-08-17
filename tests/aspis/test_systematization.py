@@ -3,7 +3,7 @@
 import json
 from unittest.mock import Mock, patch
 
-from aspis.inferencer import ModelInfo
+from aspis.providers import ModelInfo
 from aspis.systematization import (
     SYSTEMATIZATION_PAPER_PATH,
     SYSTEMATIZATION_PROMPT,

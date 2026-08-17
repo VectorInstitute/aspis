@@ -8,8 +8,9 @@ import yaml
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from aspis.inferencer import ModelInfo, evaluate_text, get_inference_prompt, resolve_model_and_provider_url
+from aspis.inferencer import evaluate_text, get_inference_prompt
 from aspis.logging import logger
+from aspis.providers import ModelInfo, resolve_model_and_provider_url
 
 
 app = FastAPI(title="Aspis API")

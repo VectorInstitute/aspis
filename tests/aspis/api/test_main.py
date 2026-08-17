@@ -9,7 +9,8 @@ import yaml
 from fastapi.testclient import TestClient
 
 from aspis.api.main import app
-from aspis.inferencer import DEFAULT_OPENAI_TIMEOUT_SECONDS, ModelInfo
+from aspis.inferencer import DEFAULT_OPENAI_TIMEOUT_SECONDS
+from aspis.providers import ModelInfo
 from aspis.utils import clean_model_output
 
 

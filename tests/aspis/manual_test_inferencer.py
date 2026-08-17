@@ -2,7 +2,8 @@
 
 import os
 
-from aspis.inferencer import ModelInfo, execute_samples_against_model
+from aspis.inferencer import execute_samples_against_model
+from aspis.providers import ModelInfo
 from aspis.systematization import SYSTEMATIZATION_PAPER_PATH, SYSTEMATIZATION_PROMPT
 
 

@@ -6,7 +6,7 @@ from pathlib import Path
 import streamlit as st
 import yaml
 
-from aspis.inferencer import ModelInfo, resolve_model_and_provider_url
+from aspis.providers import ModelInfo, resolve_model_and_provider_url
 from aspis.systematization import (
     SystematizedConcept,
     get_systematization_questions,

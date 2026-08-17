@@ -11,7 +11,8 @@ import pytest
 import yaml
 from streamlit.testing.v1 import AppTest
 
-from aspis.inferencer import DEFAULT_OPENAI_TIMEOUT_SECONDS, ModelInfo, resolve_model_and_provider_url
+from aspis.inferencer import DEFAULT_OPENAI_TIMEOUT_SECONDS
+from aspis.providers import ModelInfo, resolve_model_and_provider_url
 from aspis.systematization import (
     SystematizedConcept,
     get_systematization_questions_prompt,
