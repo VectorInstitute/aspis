@@ -787,6 +787,15 @@ def test_apply_landing_form_submission_custom_model_with_valid_proxy_accepted() 
     assert session_state["api_key"] == "test api key"
 
 
+@pytest.mark.parametrize("selected_model", [None, "", "   "])
+def test_apply_landing_form_submission_missing_model_rejected(selected_model: str | None) -> None:
+    accepted, session_state, errors = submit_landing_form(selected_model, "")
+
+    assert accepted is False
+    assert errors == ["Please select a model before proceeding."]
+    assert_nothing_persisted(session_state)
+
+
 @pytest.mark.parametrize(
     ("product_description", "risk_description", "api_key", "expected_error"),
     [
