@@ -183,7 +183,7 @@ def execute_samples_against_model(
                 )
             except Exception as e:
                 logger.exception("Error during model evaluation for model %s", model_id)
-                raise ValueError("Error during evaluation.") from e
+                raise RuntimeError("Error during evaluation.") from e
 
             if not response.choices:
                 raise ValueError("Expected at least one choice in the model response")

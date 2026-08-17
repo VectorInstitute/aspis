@@ -95,8 +95,8 @@ def main() -> None:
     elif systematization_answers is None:
         # Generate questions if not already generated
         if follow_up_questions is None or len(follow_up_questions) == 0:
-            if not provider_url:
-                st.error("Missing provider URL. Please start over from the landing page.")
+            if not provider_url or not api_key:
+                st.error("Missing provider URL or API key. Please start over from the landing page.")
                 return
             with st.spinner("Generating questions..."):
                 follow_up_questions = get_systematization_questions(
@@ -118,8 +118,8 @@ def main() -> None:
     # Generating and rendering the systematized concepts
     else:
         if systematized_concepts is None:
-            if not provider_url:
-                st.error("Missing provider URL. Please start over from the landing page.")
+            if not provider_url or not api_key:
+                st.error("Missing provider URL or API key. Please start over from the landing page.")
                 return
             # Answers have been submitted, generate and display systematized concepts
             with st.spinner("Generating systematized concepts..."):

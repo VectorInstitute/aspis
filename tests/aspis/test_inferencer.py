@@ -208,7 +208,7 @@ def test_execute_samples_against_model_raises_on_api_error(mock_openai: Mock) ->
     mock_client.chat.completions.create.side_effect = RuntimeError("boom")
     model = ModelInfo.OPENAI_GPT_4O
 
-    with pytest.raises(ValueError, match="Error during evaluation") as exc_info:
+    with pytest.raises(RuntimeError, match="Error during evaluation") as exc_info:
         execute_samples_against_model(["prompt"], model.model_id, "key", model.provider_url)
 
     assert isinstance(exc_info.value.__cause__, RuntimeError)
