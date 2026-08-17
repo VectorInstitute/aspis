@@ -73,10 +73,7 @@ async def evaluate(
     try:
         # Resolution can perform blocking DNS lookups, so keep it off the event loop.
         model_id, provider_url = await asyncio.to_thread(resolve_model_and_provider_url, model, proxy_base_url)
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e)) from e
 
-    try:
         file_content = await systematized_concepts_file.read()
         file_text = file_content.decode("utf-8")
 
@@ -120,6 +117,8 @@ async def evaluate(
 
         return evaluation_responses
 
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
     except AssertionError as e:
         logger.exception("Assertion error during evaluation: %s", e)
         raise HTTPException(status_code=422, detail=str(e)) from e
