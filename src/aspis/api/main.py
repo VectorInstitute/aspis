@@ -47,7 +47,7 @@ async def evaluate(
         text_to_evaluate: The text to evaluate.
         api_key: The API key to use to connect to the model.
         model: The model ID to use for this evaluation. Optional,
-            defaults to `gpt-4o`. natively supported model IDs are `gpt-4o`,
+            defaults to `gpt-4o`. Natively supported model IDs are `gpt-4o`,
             `gpt-5.5`, `gpt-5.4-mini`, `gemini-3.1-pro-preview`,
             `gemini-3-flash-preview`, `claude-opus-4-7`, and
             `claude-sonnet-4-6`. Custom model IDs are allowed when

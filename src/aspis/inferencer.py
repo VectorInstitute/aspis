@@ -133,7 +133,7 @@ def resolve_model_and_provider_url(
     raise ValueError("Please enter a proxy address for custom model IDs.")
 
 
-def create_openai_client(api_key: str, model_id: str, provider_url: str) -> OpenAI:
+def create_openai_client(api_key: str, provider_url: str) -> OpenAI:
     """Create a new OpenAI client for a single request.
 
     The API key is passed only to this client instance and is never written to
@@ -142,13 +142,11 @@ def create_openai_client(api_key: str, model_id: str, provider_url: str) -> Open
 
     Args:
         api_key: The caller-provided API key.
-        model_id: The model ID this client will be used with.
         provider_url: OpenAI-compatible base URL (already resolved).
 
     Returns:
         A new ``OpenAI`` client pointed at ``provider_url``.
     """
-    del model_id  # Accepted for call-site clarity; base URL is already resolved.
     return OpenAI(
         api_key=api_key,
         base_url=provider_url,
@@ -176,7 +174,7 @@ def execute_samples_against_model(
     logger.info(f"Making API call to model {model_id}...")
 
     model_outputs = []
-    with create_openai_client(api_key, model_id, provider_url) as client:
+    with create_openai_client(api_key, provider_url) as client:
         for prompt in prompts:
             try:
                 response = client.chat.completions.create(

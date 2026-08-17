@@ -116,7 +116,7 @@ def test_resolve_model_and_provider_url_rejects_invalid_url() -> None:
 def test_create_openai_client_passes_api_key_and_provider_url(mock_openai: Mock) -> None:
     api_key = "test-api-key"
     model = ModelInfo.OPENAI_GPT_4O
-    create_openai_client(api_key, model.model_id, model.provider_url)
+    create_openai_client(api_key, model.provider_url)
 
     mock_openai.assert_called_once_with(
         api_key=api_key,
@@ -128,7 +128,7 @@ def test_create_openai_client_passes_api_key_and_provider_url(mock_openai: Mock)
 @patch("aspis.inferencer.OpenAI")
 def test_create_openai_client_with_custom_provider_url(mock_openai: Mock) -> None:
     provider_url = "https://proxy.vectorinstitute.ai/v1"
-    create_openai_client("key", ModelInfo.OPENAI_GPT_4O.model_id, provider_url)
+    create_openai_client("key", provider_url)
     mock_openai.assert_called_once_with(
         api_key="key",
         base_url=provider_url,
