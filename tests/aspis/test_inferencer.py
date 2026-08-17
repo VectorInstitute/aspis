@@ -11,8 +11,10 @@ from aspis.inferencer import (
     ModelInfo,
     assert_provider_url_not_dangerous,
     create_openai_client,
+    evaluate_text,
     execute_samples_against_model,
     extract_string_output,
+    get_inference_prompt,
     resolve_model_and_provider_url,
     validate_provider_url,
 )
@@ -293,3 +295,77 @@ def test_execute_samples_against_model_raises_on_empty_choices(mock_openai: Mock
 
     with pytest.raises(ValueError, match="Expected at least one choice"):
         execute_samples_against_model(["prompt"], model.model_id, "key", model.provider_url)
+
+
+@patch("aspis.inferencer.OpenAI")
+def test_execute_samples_against_model_raises_on_non_string_message_content(mock_openai: Mock) -> None:
+    mock_client = Mock()
+    mock_openai.return_value = mock_client
+    mock_client.__enter__ = Mock(return_value=mock_client)
+    mock_client.__exit__ = Mock(return_value=False)
+    mock_client.chat.completions.create.return_value = Mock(choices=[Mock(message=Mock(content=123))])
+    model = ModelInfo.OPENAI_GPT_4O
+
+    with (
+        patch("aspis.inferencer.extract_string_output", return_value=123),
+        pytest.raises(ValueError, match="Expected message content to be a string"),
+    ):
+        execute_samples_against_model(["prompt"], model.model_id, "key", model.provider_url)
+
+
+def test_model_info_str_returns_friendly_name() -> None:
+    assert str(ModelInfo.OPENAI_GPT_4O) == "GPT-4o (OpenAI)"
+
+
+def test_assert_provider_url_not_dangerous_rejects_ipv4_mapped_private_address() -> None:
+    with pytest.raises(ValueError, match="must not target a private, local, or link-local network"):
+        assert_provider_url_not_dangerous("http://[::ffff:127.0.0.1]/v1")
+
+
+def test_assert_provider_url_not_dangerous_rejects_missing_hostname() -> None:
+    with pytest.raises(ValueError, match="Please enter a valid proxy address URL"):
+        assert_provider_url_not_dangerous("http:///v1")
+
+
+def test_assert_provider_url_not_dangerous_rejects_empty_addrinfo() -> None:
+    with (
+        patch("aspis.inferencer.socket.getaddrinfo", return_value=[]),
+        pytest.raises(ValueError, match="Unable to resolve proxy address host"),
+    ):
+        assert_provider_url_not_dangerous("https://empty-dns.example/v1")
+
+
+def test_get_inference_prompt_replaces_placeholder() -> None:
+    assert get_inference_prompt("hello", "Judge: <text_to_evaluate/>") == "Judge: <text>hello</text>"
+
+
+@patch("aspis.inferencer.OpenAI")
+def test_evaluate_text_parses_json_and_falls_back_to_raw_output(mock_openai: Mock) -> None:
+    mock_client = Mock()
+    mock_openai.return_value = mock_client
+    mock_client.__enter__ = Mock(return_value=mock_client)
+    mock_client.__exit__ = Mock(return_value=False)
+    mock_client.chat.completions.create.side_effect = [
+        Mock(choices=[Mock(message=Mock(content='{"score": 1}'))]),
+        Mock(choices=[Mock(message=Mock(content="not-json"))]),
+    ]
+    model = ModelInfo.OPENAI_GPT_4O
+
+    results = evaluate_text(
+        "hello world",
+        ["Template A: <text_to_evaluate/>", "Template B: <text_to_evaluate/>"],
+        model.model_id,
+        "key",
+        model.provider_url,
+    )
+
+    assert results == [{"score": 1}, {"raw_output": "not-json"}]
+    assert mock_client.chat.completions.create.call_count == 2
+    mock_client.chat.completions.create.assert_any_call(
+        model=model.model_id,
+        messages=[{"role": "user", "content": "Template A: <text>hello world</text>"}],
+    )
+    mock_client.chat.completions.create.assert_any_call(
+        model=model.model_id,
+        messages=[{"role": "user", "content": "Template B: <text>hello world</text>"}],
+    )
