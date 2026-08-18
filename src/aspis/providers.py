@@ -184,7 +184,9 @@ def resolve_model_and_provider_url(
 
     Args:
         model: Model ID string (known or custom).
-        proxy_base_url: Optional OpenAI-compatible base URL override.
+        proxy_base_url: Optional OpenAI-compatible base URL override. Leave empty
+            for known models to use their provider default. Required for custom
+            model IDs.
 
     Returns:
         A tuple of ``(model_id, provider_url)``.

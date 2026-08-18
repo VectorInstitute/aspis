@@ -54,6 +54,7 @@ async def evaluate(
             `claude-sonnet-4-6`. Custom model IDs are allowed when
             `proxy_base_url` is provided.
         proxy_base_url: Optional OpenAI-compatible base URL override.
+            Leave empty for known models to use their provider default.
             Required when `model` is not an exact match for a known model.
         systematized_concepts_file: The file containing the systematized concepts.
             It must be a `.yaml` file that contains a `systematized_concepts` key

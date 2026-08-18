@@ -85,15 +85,21 @@ endpoint that takes a form data with the following fields:
 - An `api_key` to access the models
 - A file upload `systematized_concepts_file`, which can be downloaded after answering
 all the questions from the main app.
-- (Optional) The model to use for the evaluation. Default is `gpt-4o`. Possible values
-are `gpt-4o`, `gpt-5.5`, `gpt-5.4-mini`, `gemini-3.1-pro-preview`,
-`gemini-3-flash-preview`, `claude-opus-4-7`, and `claude-sonnet-4-6`.
+- (Optional) The `model` ID to use for the evaluation. Default is `gpt-4o`. Natively
+supported model IDs are `gpt-4o`, `gpt-5.5`, `gpt-5.4-mini`, `gemini-3.1-pro-preview`,
+`gemini-3-flash-preview`, `claude-opus-4-7`, and `claude-sonnet-4-6`. Custom model IDs
+are allowed when `proxy_base_url` is provided.
+- (Optional) A `proxy_base_url` OpenAI-compatible base URL. Leave empty for known models
+to use their provider default. Required for custom model IDs.
 
 To see the full documentation for the available endpoints, you can access
 `http://localhost:8080/api/docs` on your browser.
 
-### 🔑 LLM API keys (Vector proxy)
+### 🔑 LLM API keys
 
-LLM calls are routed through Vector's OpenAI-compatible proxy at
-`https://proxy.vectorinstitute.ai/v1`. Pass a Vector proxy API key as `api_key` in the
-UI or API (not a provider-specific key written into process environment variables).
+Known models call their provider's OpenAI-compatible endpoint by default (OpenAI, Google,
+or Anthropic). Pass an API key that matches that destination as `api_key`.
+
+To use a custom OpenAI-compatible proxy (for example Vector's
+`https://proxy.vectorinstitute.ai/v1`), set `proxy_base_url` in the API or **Proxy
+details** in the UI, and pass a key for that proxy.
