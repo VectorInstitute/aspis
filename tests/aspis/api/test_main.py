@@ -9,7 +9,8 @@ import yaml
 from fastapi.testclient import TestClient
 
 from aspis.api.main import app
-from aspis.inferencer import DEFAULT_OPENAI_TIMEOUT_SECONDS, DEFAULT_PROXY_BASE_URL, ModelInfo
+from aspis.inferencer import DEFAULT_OPENAI_TIMEOUT_SECONDS
+from aspis.providers import ModelInfo
 from aspis.utils import clean_model_output
 
 
@@ -79,7 +80,9 @@ def test_evaluate_from_file_success(mock_openai: Mock) -> None:
             assert json_response[i]["prompt"] == expected_prompts[i]
 
         mock_openai.assert_called_once_with(
-            api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
+            api_key=test_api_key,
+            base_url=ModelInfo.OPENAI_GPT_4O.provider_url,
+            timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
         )
         assert mock_client.chat.completions.create.call_count == len(test_systematized_concepts)
         for expected_prompt in expected_prompts:
@@ -181,7 +184,9 @@ def test_evaluate_from_file_with_model_success(mock_openai: Mock) -> None:
 
         assert response.status_code == 200
         mock_openai.assert_called_once_with(
-            api_key=test_api_key, base_url=DEFAULT_PROXY_BASE_URL, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
+            api_key=test_api_key,
+            base_url=ModelInfo.GOOGLE_GEMINI_3_1_PRO_PREVIEW.provider_url,
+            timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
         )
         mock_client.chat.completions.create.assert_called_once_with(
             model=test_model_id,
@@ -195,7 +200,57 @@ def test_evaluate_from_file_with_model_success(mock_openai: Mock) -> None:
 
 
 @pytest.mark.integration_test
-def test_evaluate_from_file_invalid_model() -> None:
+@patch("aspis.inferencer.OpenAI")
+def test_evaluate_from_file_strips_whitespace_padded_known_model(mock_openai: Mock) -> None:
+    test_systematized_concepts = [
+        {"title": "Test concept 1", "prompt_template": "Test template 1 <text_to_evaluate/> text"}
+    ]
+    file_content = yaml.safe_dump({"systematized_concepts": test_systematized_concepts}).encode("utf-8")
+
+    mock_client = Mock()
+    mock_openai.return_value = mock_client
+    mock_client.__enter__ = Mock(return_value=mock_client)
+    mock_client.__exit__ = Mock(return_value=False)
+    mock_client.chat.completions.create.return_value = _mock_completion('{"score": "ok"}')
+
+    test_api_key = "test api key"
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/evaluate_from_file",
+            data={
+                "text_to_evaluate": "Test text",
+                "api_key": test_api_key,
+                "model": f"  {ModelInfo.OPENAI_GPT_4O.model_id}  ",
+            },
+            files={
+                "systematized_concepts_file": (
+                    "systematized_concepts.yaml",
+                    BytesIO(file_content),
+                    "application/yaml",
+                )
+            },
+        )
+
+        assert response.status_code == 200
+        mock_openai.assert_called_once_with(
+            api_key=test_api_key,
+            base_url=ModelInfo.OPENAI_GPT_4O.provider_url,
+            timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
+        )
+        mock_client.chat.completions.create.assert_called_once_with(
+            model=ModelInfo.OPENAI_GPT_4O.model_id,
+            messages=[
+                {
+                    "role": "user",
+                    "content": "Test template 1 <text>Test text</text> text",
+                }
+            ],
+        )
+
+
+@pytest.mark.integration_test
+def test_evaluate_from_file_custom_model_requires_proxy() -> None:
     test_systematized_concepts = [
         {"title": "Test concept 1", "prompt_template": "Test template 1 <text_to_evaluate/> text"}
     ]
@@ -207,7 +262,7 @@ def test_evaluate_from_file_invalid_model() -> None:
             data={
                 "text_to_evaluate": "Test text",
                 "api_key": "test api key",
-                "model": "invalid model",
+                "model": "my-custom-model",
             },
             files={
                 "systematized_concepts_file": (
@@ -219,7 +274,167 @@ def test_evaluate_from_file_invalid_model() -> None:
         )
 
         assert response.status_code == 422
-        assert "Input should be 'gpt-4o'" in response.json()["detail"][0]["msg"]
+        assert "Please enter a proxy address for custom model IDs" in response.json()["detail"]
+
+
+@pytest.mark.integration_test
+@patch("aspis.inferencer.OpenAI")
+def test_evaluate_from_file_custom_model_with_proxy_success(mock_openai: Mock) -> None:
+    test_systematized_concepts = [
+        {"title": "Test concept 1", "prompt_template": "Test template 1 <text_to_evaluate/> text"}
+    ]
+    file_content = yaml.safe_dump({"systematized_concepts": test_systematized_concepts}).encode("utf-8")
+    test_proxy = "https://1.1.1.1/v1"
+    test_api_key = "test api key"
+    test_model = "my-custom-model"
+
+    mock_client = Mock()
+    mock_openai.return_value = mock_client
+    mock_client.__enter__ = Mock(return_value=mock_client)
+    mock_client.__exit__ = Mock(return_value=False)
+    mock_client.chat.completions.create.return_value = _mock_completion('{"score": "ok"}')
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/evaluate_from_file",
+            data={
+                "text_to_evaluate": "Test text",
+                "api_key": test_api_key,
+                "model": test_model,
+                "proxy_base_url": test_proxy,
+            },
+            files={
+                "systematized_concepts_file": (
+                    "systematized_concepts.yaml",
+                    BytesIO(file_content),
+                    "application/yaml",
+                )
+            },
+        )
+
+        assert response.status_code == 200
+        mock_openai.assert_called_once_with(
+            api_key=test_api_key, base_url=test_proxy, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
+        )
+        mock_client.chat.completions.create.assert_called_once_with(
+            model=test_model,
+            messages=[
+                {
+                    "role": "user",
+                    "content": "Test template 1 <text>Test text</text> text",
+                }
+            ],
+        )
+
+
+@pytest.mark.integration_test
+@patch("aspis.inferencer.OpenAI")
+def test_evaluate_from_file_known_model_with_proxy_override(mock_openai: Mock) -> None:
+    test_systematized_concepts = [
+        {"title": "Test concept 1", "prompt_template": "Test template 1 <text_to_evaluate/> text"}
+    ]
+    file_content = yaml.safe_dump({"systematized_concepts": test_systematized_concepts}).encode("utf-8")
+    test_proxy = "https://1.1.1.1/v1"
+    test_api_key = "test api key"
+
+    mock_client = Mock()
+    mock_openai.return_value = mock_client
+    mock_client.__enter__ = Mock(return_value=mock_client)
+    mock_client.__exit__ = Mock(return_value=False)
+    mock_client.chat.completions.create.return_value = _mock_completion('{"score": "ok"}')
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/evaluate_from_file",
+            data={
+                "text_to_evaluate": "Test text",
+                "api_key": test_api_key,
+                "model": ModelInfo.OPENAI_GPT_4O.model_id,
+                "proxy_base_url": test_proxy,
+            },
+            files={
+                "systematized_concepts_file": (
+                    "systematized_concepts.yaml",
+                    BytesIO(file_content),
+                    "application/yaml",
+                )
+            },
+        )
+
+        assert response.status_code == 200
+        mock_openai.assert_called_once_with(
+            api_key=test_api_key, base_url=test_proxy, timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS
+        )
+
+
+@pytest.mark.integration_test
+def test_evaluate_from_file_invalid_proxy_url() -> None:
+    test_systematized_concepts = [
+        {"title": "Test concept 1", "prompt_template": "Test template 1 <text_to_evaluate/> text"}
+    ]
+    file_content = yaml.safe_dump({"systematized_concepts": test_systematized_concepts}).encode("utf-8")
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/evaluate_from_file",
+            data={
+                "text_to_evaluate": "Test text",
+                "api_key": "test api key",
+                "model": ModelInfo.OPENAI_GPT_4O.model_id,
+                "proxy_base_url": "not-a-valid-url",
+            },
+            files={
+                "systematized_concepts_file": (
+                    "systematized_concepts.yaml",
+                    BytesIO(file_content),
+                    "application/yaml",
+                )
+            },
+        )
+
+        assert response.status_code == 422
+        assert "Please enter a valid proxy address URL" in response.json()["detail"]
+
+
+@pytest.mark.integration_test
+@patch("aspis.inferencer.OpenAI")
+def test_evaluate_from_file_empty_proxy_skips_validation(mock_openai: Mock) -> None:
+    test_systematized_concepts = [
+        {"title": "Test concept 1", "prompt_template": "Test template 1 <text_to_evaluate/> text"}
+    ]
+    file_content = yaml.safe_dump({"systematized_concepts": test_systematized_concepts}).encode("utf-8")
+    test_api_key = "test api key"
+
+    mock_client = Mock()
+    mock_openai.return_value = mock_client
+    mock_client.__enter__ = Mock(return_value=mock_client)
+    mock_client.__exit__ = Mock(return_value=False)
+    mock_client.chat.completions.create.return_value = _mock_completion('{"score": "ok"}')
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/evaluate_from_file",
+            data={
+                "text_to_evaluate": "Test text",
+                "api_key": test_api_key,
+                "model": ModelInfo.OPENAI_GPT_4O.model_id,
+                "proxy_base_url": "   ",
+            },
+            files={
+                "systematized_concepts_file": (
+                    "systematized_concepts.yaml",
+                    BytesIO(file_content),
+                    "application/yaml",
+                )
+            },
+        )
+
+        assert response.status_code == 200
+        mock_openai.assert_called_once_with(
+            api_key=test_api_key,
+            base_url=ModelInfo.OPENAI_GPT_4O.provider_url,
+            timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
+        )
 
 
 @pytest.mark.integration_test
@@ -258,13 +473,13 @@ def test_evaluate_from_file_failure_assertions(mock_openai: Mock) -> None:
     return_values_and_expectations = [
         (
             Mock(choices=[]),
-            500,
-            "Evaluation failed: Expected at least one choice in the model response",
+            422,
+            "Expected at least one choice in the model response",
         ),
         (
             Mock(choices=[Mock(message=Mock(content=123))]),
-            500,
-            "Evaluation failed: Unsupported model output content type: <class 'int'>",
+            422,
+            "Unsupported model output content type: <class 'int'>",
         ),
     ]
 

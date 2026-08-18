@@ -3,7 +3,7 @@
 import json
 from unittest.mock import Mock, patch
 
-from aspis.inferencer import ModelInfo
+from aspis.providers import ModelInfo
 from aspis.systematization import (
     SYSTEMATIZATION_PAPER_PATH,
     SYSTEMATIZATION_PROMPT,
@@ -29,24 +29,90 @@ def test_get_systematization_questions_success(mock_execute_samples: Mock) -> No
         test_product_description = "test product description"
         test_risk_description = "test risk description"
         test_openai_api_key = "test api key"
-        test_model_info = ModelInfo.OPENAI_GPT_4O
+        test_model = ModelInfo.OPENAI_GPT_4O
 
         questions = get_systematization_questions(
             product_description=test_product_description,
             risk_description=test_risk_description,
             api_key=test_openai_api_key,
-            model_info=test_model_info,
+            model_id=test_model.model_id,
+            provider_url=test_model.provider_url,
         )
 
         assert questions == ["test question 1", "test question 2"]
 
         mock_execute_samples.assert_called_once_with(
             [get_systematization_questions_prompt(test_product_description, test_risk_description)],
-            test_model_info,
+            test_model.model_id,
             test_openai_api_key,
+            test_model.provider_url,
         )
 
         mock_execute_samples.reset_mock()
+
+
+@patch("aspis.systematization.execute_samples_against_model")
+def test_get_systematization_questions_forwards_provider_url(mock_execute_samples: Mock) -> None:
+    mock_execute_samples.return_value = ['["test question 1"]']
+    test_provider_url = "https://proxy.example/v1"
+    test_model = ModelInfo.OPENAI_GPT_4O
+
+    questions = get_systematization_questions(
+        product_description="test product description",
+        risk_description="test risk description",
+        api_key="test api key",
+        model_id=test_model.model_id,
+        provider_url=test_provider_url,
+    )
+
+    assert questions == ["test question 1"]
+    mock_execute_samples.assert_called_once_with(
+        [get_systematization_questions_prompt("test product description", "test risk description")],
+        test_model.model_id,
+        "test api key",
+        test_provider_url,
+    )
+
+
+@patch("aspis.systematization.execute_samples_against_model")
+def test_get_systematized_concepts_forwards_provider_url(mock_execute_samples: Mock) -> None:
+    test_concepts = [
+        {
+            "title": "test concept 1",
+            "body": "test body 1",
+            "prompt_template": "test prompt template 1",
+        },
+    ]
+    mock_execute_samples.return_value = [json.dumps(test_concepts)]
+    test_provider_url = "https://proxy.example/v1"
+    test_model = ModelInfo.OPENAI_GPT_4O
+    test_questions = ["test question 1"]
+    test_answers = ["test answer 1"]
+
+    systematized_concepts = get_systematized_concepts(
+        product_description="test product description",
+        risk_description="test risk description",
+        questions=test_questions,
+        answers=test_answers,
+        api_key="test api key",
+        model_id=test_model.model_id,
+        provider_url=test_provider_url,
+    )
+
+    assert systematized_concepts == [SystematizedConcept(**test_concepts[0])]
+    mock_execute_samples.assert_called_once_with(
+        [
+            get_systematized_concepts_prompt(
+                "test product description",
+                "test risk description",
+                test_questions,
+                test_answers,
+            )
+        ],
+        test_model.model_id,
+        "test api key",
+        test_provider_url,
+    )
 
 
 @patch("aspis.systematization.execute_samples_against_model")
@@ -66,20 +132,22 @@ def test_get_systematization_questions_failure_invalid_results(mock_execute_samp
         test_product_description = "test product description"
         test_risk_description = "test risk description"
         test_openai_api_key = "test api key"
-        test_model_info = ModelInfo.OPENAI_GPT_4O
+        test_model = ModelInfo.OPENAI_GPT_4O
 
         questions = get_systematization_questions(
             product_description=test_product_description,
             risk_description=test_risk_description,
             api_key=test_openai_api_key,
-            model_info=test_model_info,
+            model_id=test_model.model_id,
+            provider_url=test_model.provider_url,
         )
 
         assert questions is None
         mock_execute_samples.assert_called_once_with(
             [get_systematization_questions_prompt(test_product_description, test_risk_description)],
-            test_model_info,
+            test_model.model_id,
             test_openai_api_key,
+            test_model.provider_url,
         )
         mock_execute_samples.reset_mock()
 
@@ -111,7 +179,7 @@ def test_get_systematized_concepts_success(mock_execute_samples: Mock) -> None:
         test_questions = ["test question 1", "test question 2"]
         test_answers = ["test answer to question 1", "test answer to question 2"]
         test_openai_api_key = "test api key"
-        test_model_info = ModelInfo.OPENAI_GPT_4O
+        test_model = ModelInfo.OPENAI_GPT_4O
 
         systematized_concepts = get_systematized_concepts(
             product_description=test_product_description,
@@ -119,7 +187,8 @@ def test_get_systematized_concepts_success(mock_execute_samples: Mock) -> None:
             questions=test_questions,
             answers=test_answers,
             api_key=test_openai_api_key,
-            model_info=test_model_info,
+            model_id=test_model.model_id,
+            provider_url=test_model.provider_url,
         )
 
         mock_execute_samples.assert_called_once_with(
@@ -131,8 +200,9 @@ def test_get_systematized_concepts_success(mock_execute_samples: Mock) -> None:
                     test_answers,
                 )
             ],
-            test_model_info,
+            test_model.model_id,
             test_openai_api_key,
+            test_model.provider_url,
         )
         assert systematized_concepts == [SystematizedConcept(**test_concept) for test_concept in test_concepts]
 
@@ -158,7 +228,7 @@ def test_get_systematized_concepts_failure_invalid_results(mock_execute_samples:
         test_questions = ["test question 1", "test question 2"]
         test_answers = ["test answer to question 1", "test answer to question 2"]
         test_openai_api_key = "test api key"
-        test_model_info = ModelInfo.OPENAI_GPT_4O
+        test_model = ModelInfo.OPENAI_GPT_4O
 
         systematized_concepts = get_systematized_concepts(
             product_description=test_product_description,
@@ -166,7 +236,8 @@ def test_get_systematized_concepts_failure_invalid_results(mock_execute_samples:
             questions=test_questions,
             answers=test_answers,
             api_key=test_openai_api_key,
-            model_info=test_model_info,
+            model_id=test_model.model_id,
+            provider_url=test_model.provider_url,
         )
 
         assert systematized_concepts is None
@@ -179,8 +250,9 @@ def test_get_systematized_concepts_failure_invalid_results(mock_execute_samples:
                     test_answers,
                 )
             ],
-            test_model_info,
+            test_model.model_id,
             test_openai_api_key,
+            test_model.provider_url,
         )
         mock_execute_samples.reset_mock()
 

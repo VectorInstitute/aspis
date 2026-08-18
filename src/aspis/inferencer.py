@@ -1,9 +1,7 @@
 """Scorer for applications using Aspis as an LLM-as-a-judge."""
 
 import json
-import os
-from enum import Enum
-from typing import Any, Self
+from typing import Any
 
 from openai import OpenAI
 
@@ -11,61 +9,13 @@ from aspis.logging import logger
 from aspis.utils import clean_model_output
 
 
-DEFAULT_PROXY_BASE_URL = "https://proxy.vectorinstitute.ai/v1"
 DEFAULT_OPENAI_TIMEOUT_SECONDS = 120.0
 
 # Content part types that are reasoning / thinking (not the final answer).
 _REASONING_PART_TYPES = frozenset({"reasoning", "thinking", "reasoning_content"})
 
 
-class ModelInfo(str, Enum):
-    """Information about the supported models for inferencing."""
-
-    model_id: str
-    friendly_name: str
-
-    OPENAI_GPT_4O = ("gpt-4o", "GPT-4o (OpenAI)")
-    OPENAI_GPT_5_5 = ("gpt-5.5", "GPT-5.5 (OpenAI)")
-    OPENAI_GPT_5_4_MINI = ("gpt-5.4-mini", "GPT-5.4-mini (OpenAI)")
-    GOOGLE_GEMINI_3_1_PRO_PREVIEW = ("gemini-3.1-pro-preview", "Gemini 3.1 Pro Preview (Google)")
-    GOOGLE_GEMINI_3_FLASH_PREVIEW = ("gemini-3-flash-preview", "Gemini 3 Flash Preview (Google)")
-    ANTHROPIC_CLAUDE_4_7_OPUS = ("claude-opus-4-7", "Claude Opus 4.7 (Anthropic)")
-    ANTHROPIC_CLAUDE_4_6_SONNET = ("claude-sonnet-4-6", "Claude Sonnet 4.6 (Anthropic)")
-
-    def __new__(cls, model_id: str, friendly_name: str) -> Self:
-        """Make a new ModelInfo enum object.
-
-        The value of the enum will be the model ID.
-
-        Args:
-            model_id: The ID of the model.
-            friendly_name: The friendly name of the model (displayed in the UI).
-        """
-        obj = str.__new__(cls, model_id)
-        obj._value_ = model_id
-        obj.model_id = model_id
-        obj.friendly_name = friendly_name
-        return obj
-
-    def __str__(self) -> str:
-        """Return the friendly name of the model.
-
-        Returns:
-            The friendly name of the model.
-        """
-        return self.friendly_name
-
-
-def get_proxy_base_url() -> str:
-    """Return the OpenAI-compatible proxy base URL.
-
-    Returns:
-        The proxy base URL, overridable via ``ASPIS_OPENAI_BASE_URL``.
-    """
-    return os.environ.get("ASPIS_OPENAI_BASE_URL", DEFAULT_PROXY_BASE_URL)
-
-
-def create_openai_client(api_key: str) -> OpenAI:
+def create_openai_client(api_key: str, provider_url: str) -> OpenAI:
     """Create a new OpenAI client for a single request.
 
     The API key is passed only to this client instance and is never written to
@@ -74,41 +24,48 @@ def create_openai_client(api_key: str) -> OpenAI:
 
     Args:
         api_key: The caller-provided API key.
+        provider_url: OpenAI-compatible base URL (already resolved).
 
     Returns:
-        A new ``OpenAI`` client pointed at the Vector proxy.
+        A new ``OpenAI`` client pointed at ``provider_url``.
     """
     return OpenAI(
         api_key=api_key,
-        base_url=get_proxy_base_url(),
+        base_url=provider_url,
         timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
     )
 
 
-def execute_samples_against_model(prompts: list[str], model_info: ModelInfo, api_key: str) -> list[str]:
+def execute_samples_against_model(
+    prompts: list[str],
+    model_id: str,
+    api_key: str,
+    provider_url: str,
+) -> list[str]:
     """Executes a list of prompts against a model and returns the model outputs.
 
     Args:
         prompts: The list of prompt strings to execute against the model.
-        model_info: The information about the model to execute the prompts against.
+        model_id: The model ID string to call.
         api_key: The API key to use to execute the prompts against the model.
+        provider_url: OpenAI-compatible base URL (already resolved).
 
     Returns:
         The model outputs.
     """
-    logger.info(f"Making API call to model {model_info.model_id}...")
+    logger.info(f"Making API call to model {model_id}...")
 
     model_outputs = []
-    with create_openai_client(api_key) as client:
+    with create_openai_client(api_key, provider_url) as client:
         for prompt in prompts:
             try:
                 response = client.chat.completions.create(
-                    model=model_info.model_id,
+                    model=model_id,
                     messages=[{"role": "user", "content": prompt}],
                 )
             except Exception as e:
-                logger.exception("Error during model evaluation for model %s", model_info.model_id)
-                raise ValueError("Error during evaluation.") from e
+                logger.exception("Error during model evaluation for model %s", model_id)
+                raise RuntimeError("Error during evaluation.") from e
 
             if not response.choices:
                 raise ValueError("Expected at least one choice in the model response")
@@ -122,7 +79,11 @@ def execute_samples_against_model(prompts: list[str], model_info: ModelInfo, api
 
 
 def evaluate_text(
-    input_text: str, prompt_templates: list[str], model_info: ModelInfo, api_key: str
+    input_text: str,
+    prompt_templates: list[str],
+    model_id: str,
+    api_key: str,
+    provider_url: str,
 ) -> list[dict[str, Any]]:
     """Evaluates input text using the model and the prompt.
 
@@ -132,14 +93,15 @@ def evaluate_text(
     Args:
         input_text: The input text to infer.
         prompt_templates: The list of prompt templates to use to infer the input text.
-        model_info: The information about the model to use to infer the input text.
+        model_id: The model ID string to call.
         api_key: The API key to use to connect to the model.
+        provider_url: OpenAI-compatible base URL (already resolved).
 
     Returns:
         The inferred output from the model, parsed from a json to a dictionary.
     """
     prompts = [get_inference_prompt(input_text, prompt_template) for prompt_template in prompt_templates]
-    model_outputs = execute_samples_against_model(prompts, model_info, api_key)
+    model_outputs = execute_samples_against_model(prompts, model_id, api_key, provider_url)
 
     parsed_model_outputs = []
     for model_output in model_outputs:

@@ -8,8 +8,9 @@ import yaml
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from aspis.inferencer import ModelInfo, evaluate_text, get_inference_prompt
+from aspis.inferencer import evaluate_text, get_inference_prompt
 from aspis.logging import logger
+from aspis.providers import ModelInfo, resolve_model_and_provider_url
 
 
 app = FastAPI(title="Aspis API")
@@ -36,7 +37,8 @@ async def evaluate(
     text_to_evaluate: str = Form(...),
     api_key: str = Form(...),
     systematized_concepts_file: UploadFile = File(...),  # noqa: B008 mypy's false positive on File(...)
-    model: ModelInfo = Form(ModelInfo.OPENAI_GPT_4O),  # noqa: B008 mypy's false positive on Form with default value
+    model: str = Form(ModelInfo.OPENAI_GPT_4O.model_id),
+    proxy_base_url: str | None = Form(None),
 ) -> list[EvaluationResponse]:
     """Evaluate an input text using systematized concepts from a file.
 
@@ -45,11 +47,15 @@ async def evaluate(
     Args:
         text_to_evaluate: The text to evaluate.
         api_key: The API key to use to connect to the model.
-        model: The model to use for this evaluation. Optional,
-            defaults to `gpt-4o`. Allowed values are `gpt-4o`,
+        model: The model ID to use for this evaluation. Optional,
+            defaults to `gpt-4o`. Natively supported model IDs are `gpt-4o`,
             `gpt-5.5`, `gpt-5.4-mini`, `gemini-3.1-pro-preview`,
             `gemini-3-flash-preview`, `claude-opus-4-7`, and
-            `claude-sonnet-4-6`.
+            `claude-sonnet-4-6`. Custom model IDs are allowed when
+            `proxy_base_url` is provided.
+        proxy_base_url: Optional OpenAI-compatible base URL override.
+            Leave empty for known models to use their provider default.
+            Required when `model` is not an exact match for a known model.
         systematized_concepts_file: The file containing the systematized concepts.
             It must be a `.yaml` file that contains a `systematized_concepts` key
             with a list of systematized concepts. Each systematized concept must
@@ -66,6 +72,9 @@ async def evaluate(
             in the file.
     """
     try:
+        # Resolution can perform blocking DNS lookups, so keep it off the event loop.
+        model_id, provider_url = await asyncio.to_thread(resolve_model_and_provider_url, model, proxy_base_url)
+
         file_content = await systematized_concepts_file.read()
         file_text = file_content.decode("utf-8")
 
@@ -88,7 +97,14 @@ async def evaluate(
         logger.info("%s: Evaluating input text against all concepts...", datetime.datetime.now())
 
         # Offload the synchronous OpenAI SDK call so the event loop stays responsive.
-        results = await asyncio.to_thread(evaluate_text, text_to_evaluate, prompt_templates, model, api_key)
+        results = await asyncio.to_thread(
+            evaluate_text,
+            text_to_evaluate,
+            prompt_templates,
+            model_id,
+            api_key,
+            provider_url,
+        )
 
         evaluation_responses = []
         for i in range(len(systematized_concepts)):
@@ -102,6 +118,8 @@ async def evaluate(
 
         return evaluation_responses
 
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
     except AssertionError as e:
         logger.exception("Assertion error during evaluation: %s", e)
         raise HTTPException(status_code=422, detail=str(e)) from e

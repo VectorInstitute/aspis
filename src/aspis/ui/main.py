@@ -6,12 +6,66 @@ from pathlib import Path
 import streamlit as st
 import yaml
 
-from aspis.inferencer import ModelInfo
+from aspis.providers import ModelInfo, resolve_model_and_provider_url
 from aspis.systematization import (
     SystematizedConcept,
     get_systematization_questions,
     get_systematized_concepts,
 )
+
+
+def _apply_landing_form_submission(
+    product_description: str,
+    risk_description: str,
+    api_key: str | None,
+    selected_model: ModelInfo | str | None,
+    proxy_value: str,
+) -> bool:
+    """Validate landing-page inputs and store them in session state.
+
+    All inputs are validated before anything is written, so a failed submission
+    leaves session state untouched and keeps the user on the landing page.
+
+    Args:
+        product_description: The submitted product description.
+        risk_description: The submitted risk description.
+        api_key: The submitted API key.
+        selected_model: The selectbox value (known ``ModelInfo`` or custom model ID).
+        proxy_value: The submitted proxy address, empty when the user left it blank.
+
+    Returns:
+        True when validation succeeded and state was updated; False when an error
+        was shown and the caller should stop.
+    """
+    if not product_description.strip():
+        st.error("Please enter a product description before proceeding.")
+        return False
+
+    if not risk_description.strip():
+        st.error("Please enter a risk description before proceeding.")
+        return False
+
+    if not api_key or not api_key.strip():
+        st.error("Please enter an API key before proceeding.")
+        return False
+
+    if selected_model is None or (isinstance(selected_model, str) and not selected_model.strip()):
+        st.error("Please select a model before proceeding.")
+        return False
+
+    model_id = selected_model.model_id if isinstance(selected_model, ModelInfo) else selected_model.strip()
+    try:
+        model_id, provider_url = resolve_model_and_provider_url(model_id, proxy_value)
+    except ValueError as e:
+        st.error(str(e))
+        return False
+
+    st.session_state.product_description = product_description
+    st.session_state.risk_description = risk_description
+    st.session_state.api_key = api_key
+    st.session_state.model_id = model_id
+    st.session_state.provider_url = provider_url
+    return True
 
 
 def main() -> None:
@@ -24,7 +78,8 @@ def main() -> None:
 
     # Session state
     api_key = st.session_state.get("api_key", "")
-    model_info = st.session_state.get("model_info", ModelInfo.OPENAI_GPT_4O)
+    model_id = st.session_state.get("model_id")
+    provider_url = st.session_state.get("provider_url")
     risk_description = st.session_state.get("risk_description", "")
     product_description = st.session_state.get("product_description", "")
     follow_up_questions = st.session_state.get("follow_up_questions", None)
@@ -32,7 +87,7 @@ def main() -> None:
     systematized_concepts = st.session_state.get("systematized_concepts", None)
 
     # Rendering the landing page
-    if not model_info or not api_key or not product_description or not risk_description:
+    if not model_id or not api_key or not product_description or not risk_description:
         render_landing_page()
         render_upload_button()
 
@@ -40,12 +95,16 @@ def main() -> None:
     elif systematization_answers is None:
         # Generate questions if not already generated
         if follow_up_questions is None or len(follow_up_questions) == 0:
+            if not provider_url or not api_key:
+                st.error("Missing provider URL or API key. Please start over from the landing page.")
+                return
             with st.spinner("Generating questions..."):
                 follow_up_questions = get_systematization_questions(
                     product_description=product_description,
                     risk_description=risk_description,
                     api_key=api_key,
-                    model_info=model_info,
+                    model_id=model_id,
+                    provider_url=provider_url,
                 )
 
         if follow_up_questions is None or len(follow_up_questions) == 0:
@@ -59,6 +118,9 @@ def main() -> None:
     # Generating and rendering the systematized concepts
     else:
         if systematized_concepts is None:
+            if not provider_url or not api_key:
+                st.error("Missing provider URL or API key. Please start over from the landing page.")
+                return
             # Answers have been submitted, generate and display systematized concepts
             with st.spinner("Generating systematized concepts..."):
                 systematized_concepts = get_systematized_concepts(
@@ -67,7 +129,8 @@ def main() -> None:
                     questions=follow_up_questions,
                     answers=systematization_answers,
                     api_key=api_key,
-                    model_info=model_info,
+                    model_id=model_id,
+                    provider_url=provider_url,
                 )
 
         if systematized_concepts is None:
@@ -86,28 +149,31 @@ def render_landing_page() -> None:
         "To generate a measurement instrument for an AI risk, please start by answering the following questions:"
     )
 
-    with st.form("input_form"):
-        # Product description text area
-        current_product_description = st.text_area(
-            label="What is the description of your AI-powered product?",
-            placeholder="Enter your product description here...",
-            help=(
-                "Your product description is used to generate a measurement instrument for an AI risk. "
-                "Please describe your product in a comprehensive way."
-            ),
-            key="product_description_input",
-        )
+    # Every input lives inside the form: Streamlit only flushes text typed immediately
+    # before a click when the widget belongs to the submitted form.
+    with st.form("input_form", border=False):
+        with st.container(border=True):
+            # Product description text area
+            current_product_description = st.text_area(
+                label="What is the description of your AI-powered product?",
+                placeholder="Enter your product description here...",
+                help=(
+                    "Your product description is used to generate a measurement instrument for an AI risk. "
+                    "Please describe your product in a comprehensive way."
+                ),
+                key="product_description_input",
+            )
 
-        # Risk description text area
-        current_risk_description = st.text_area(
-            label="What is the AI risk you want to create a measurement instrument for?",
-            placeholder="Enter your risk description here...",
-            help=(
-                "Your risk description is used to generate a risk assessment. Please describe the "
-                "AI risk your product is exposed to in order to generate a measurement instrument."
-            ),
-            key="risk_description_input",
-        )
+            # Risk description text area
+            current_risk_description = st.text_area(
+                label="What is the AI risk you want to create a measurement instrument for?",
+                placeholder="Enter your risk description here...",
+                help=(
+                    "Your risk description is used to generate a risk assessment. Please describe the "
+                    "AI risk your product is exposed to in order to generate a measurement instrument."
+                ),
+                key="risk_description_input",
+            )
 
         # Model inputs
         st.markdown(
@@ -123,6 +189,8 @@ def render_landing_page() -> None:
                 options=model_options,
                 index=0,
                 key="model_info_input",
+                accept_new_options=True,
+                help="Pick a known model or type a custom model ID. Custom model IDs require a proxy address.",
             )
 
         with column_api_key:
@@ -135,32 +203,26 @@ def render_landing_page() -> None:
                 key="api_key_input",
             )
 
-        if st.form_submit_button("Generate Questions", type="primary", key="generate_questions_button"):
-            if current_product_description.strip():
-                st.session_state.product_description = current_product_description
-            else:
-                st.error("Please enter a product description before proceeding.")
-                return
+        with st.expander("Proxy details"):
+            current_proxy = st.text_input(
+                label="Proxy address",
+                placeholder="Type your proxy address",
+                help=(
+                    "OpenAI-compatible base URL. Leave blank for known models to use their "
+                    "provider default. Required for custom model IDs."
+                ),
+                key="proxy_base_url_input",
+            )
 
-            if current_risk_description.strip():
-                st.session_state.risk_description = current_risk_description
-            else:
-                st.error("Please enter a risk description before proceeding.")
-                return
-
-            if current_api_key.strip():
-                st.session_state.api_key = current_api_key
-            else:
-                st.error("Please enter an API key before proceeding.")
-                return
-
-            if current_model_info is not None:
-                st.session_state.model_info = current_model_info
-            else:
-                st.error("Please select a model before proceeding.")
-                return
-
-            # If it gets here, all the inputs are set, so rerun the UI
+        if st.form_submit_button(
+            "Generate Questions", type="primary", key="generate_questions_button"
+        ) and _apply_landing_form_submission(
+            current_product_description,
+            current_risk_description,
+            current_api_key,
+            current_model_info,
+            current_proxy,
+        ):
             st.rerun()
 
 
@@ -228,6 +290,7 @@ def render_download_button() -> None:
     file_contents = {
         "product_description": st.session_state.product_description,
         "risk_description": st.session_state.risk_description,
+        "model_id": st.session_state.model_id,
         "follow_up_questions": st.session_state.follow_up_questions,
         "systematization_answers": st.session_state.systematization_answers,
         "systematized_concepts": [asdict(concept) for concept in st.session_state.systematized_concepts],
@@ -285,6 +348,10 @@ def render_upload_button() -> None:
     # Note: API key is set to a placeholder because it can't be None,
     # we're restoring saved results and don't need to make new API calls at this stage
     st.session_state.api_key = "placeholder-key"
+    saved_model_id = saved_results.get("model_id")
+    st.session_state.model_id = str(saved_model_id) if saved_model_id else ModelInfo.OPENAI_GPT_4O.model_id
+    # Do not invent provider_url on upload — results path does not need it; regenerating
+    # questions will re-ask for model/proxy on the landing page.
     st.session_state.follow_up_questions = saved_results["follow_up_questions"]
     st.session_state.systematization_answers = saved_results["systematization_answers"]
     st.session_state.systematized_concepts = [
