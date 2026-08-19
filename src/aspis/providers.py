@@ -144,10 +144,10 @@ def assert_provider_url_not_dangerous(provider_url: str) -> None:
     try:
         addrinfo = socket.getaddrinfo(hostname, None, type=socket.SOCK_STREAM)
     except OSError as e:
-        raise ValueError("Unable to resolve proxy address host.") from e
+        raise ValueError(f"Unable to resolve proxy address host '{hostname}'.") from e
 
     if not addrinfo:
-        raise ValueError("Unable to resolve proxy address host.")
+        raise ValueError(f"Unable to resolve proxy address host '{hostname}'.")
 
     for entry in addrinfo:
         resolved_ip = ipaddress.ip_address(entry[4][0])

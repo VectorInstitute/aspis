@@ -12,7 +12,9 @@ dependencies = [
     "openai>=1.40.0",
     "pydantic>=2.11.7",
     "pyyaml>=6.0.2",
+    "rapidfuzz>=3.0.0",
     "streamlit>=1.48.1",
+    "streamlit-searchbox>=0.1.24",
 ]
 
 [project.urls]
@@ -72,6 +74,10 @@ implicit_reexport = false
 strict_equality = true
 extra_checks = true
 mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = ["streamlit_searchbox"]
+ignore_missing_imports = true
 
 [tool.ruff]
 include = ["*.py", "pyproject.toml", "*.ipynb"]

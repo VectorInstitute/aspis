@@ -90,7 +90,7 @@ def test_assert_provider_url_not_dangerous_accepts_public_hostname() -> None:
 def test_assert_provider_url_not_dangerous_rejects_unresolvable_host() -> None:
     with (
         patch("aspis.providers.socket.getaddrinfo", side_effect=socket.gaierror("boom")),
-        pytest.raises(ValueError, match="Unable to resolve proxy address host"),
+        pytest.raises(ValueError, match=r"Unable to resolve proxy address host 'does-not-resolve\.example'"),
     ):
         assert_provider_url_not_dangerous("https://does-not-resolve.example/v1")
 
@@ -115,7 +115,7 @@ def test_assert_provider_url_not_dangerous_rejects_missing_hostname() -> None:
 def test_assert_provider_url_not_dangerous_rejects_empty_addrinfo() -> None:
     with (
         patch("aspis.providers.socket.getaddrinfo", return_value=[]),
-        pytest.raises(ValueError, match="Unable to resolve proxy address host"),
+        pytest.raises(ValueError, match=r"Unable to resolve proxy address host 'empty-dns\.example'"),
     ):
         assert_provider_url_not_dangerous("https://empty-dns.example/v1")
 

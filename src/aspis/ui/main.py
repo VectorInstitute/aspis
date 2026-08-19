@@ -2,16 +2,67 @@
 
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any
 
 import streamlit as st
 import yaml
+from streamlit_searchbox import st_searchbox
 
 from aspis.providers import ModelInfo, resolve_model_and_provider_url
+from aspis.risk_catalog import (
+    RiskEntry,
+    append_risk_text,
+    format_dropdown_label,
+    load_all_risks,
+    search_risks,
+)
 from aspis.systematization import (
     SystematizedConcept,
     get_systematization_questions,
     get_systematized_concepts,
 )
+
+
+_RISK_SEARCH_KEY = "risk_search_input"
+_PENDING_RISK_DESCRIPTION_KEY = "pending_risk_description"
+
+
+def _apply_pending_risk_append(session_state: Any) -> None:
+    """Apply a pending taxonomy append before risk widgets are instantiated.
+
+    Streamlit forbids mutating a widget key after that widget is created in the
+    same run, so searchbox selection stores the new text on a non-widget key and
+    this runs first on the next rerun.
+    """
+    pending = session_state.pop(_PENDING_RISK_DESCRIPTION_KEY, None)
+    if pending is None:
+        return
+    session_state["risk_description_input"] = pending
+    session_state.pop(_RISK_SEARCH_KEY, None)
+
+
+def _stash_selected_risk(entry: Any) -> None:
+    """Queue an attributed catalog append for the next run.
+
+    Args:
+        entry: Selected catalog entry from the searchbox.
+    """
+    if not isinstance(entry, RiskEntry):
+        return
+    existing = st.session_state.get("risk_description_input", "") or ""
+    st.session_state[_PENDING_RISK_DESCRIPTION_KEY] = append_risk_text(existing, entry)
+
+
+def _search_risk_options(query: str) -> list[tuple[str, RiskEntry]]:
+    """Return ranked searchbox options as ``(label, entry)`` pairs.
+
+    Args:
+        query: Live searchbox text.
+
+    Returns:
+        Labels for the dropdown and the catalog entries they select.
+    """
+    return [(format_dropdown_label(entry), entry) for entry in search_risks(query, load_all_risks())]
 
 
 def _apply_landing_form_submission(
@@ -149,81 +200,93 @@ def render_landing_page() -> None:
         "To generate a measurement instrument for an AI risk, please start by answering the following questions:"
     )
 
-    # Every input lives inside the form: Streamlit only flushes text typed immediately
-    # before a click when the widget belongs to the submitted form.
-    with st.form("input_form", border=False):
-        with st.container(border=True):
-            # Product description text area
-            current_product_description = st.text_area(
-                label="What is the description of your AI-powered product?",
-                placeholder="Enter your product description here...",
-                help=(
-                    "Your product description is used to generate a measurement instrument for an AI risk. "
-                    "Please describe your product in a comprehensive way."
-                ),
-                key="product_description_input",
-            )
+    _apply_pending_risk_append(st.session_state)
 
-            # Risk description text area
-            current_risk_description = st.text_area(
-                label="What is the AI risk you want to create a measurement instrument for?",
-                placeholder="Enter your risk description here...",
-                help=(
-                    "Your risk description is used to generate a risk assessment. Please describe the "
-                    "AI risk your product is exposed to in order to generate a measurement instrument."
-                ),
-                key="risk_description_input",
-            )
+    current_product_description = st.text_area(
+        label="What is the description of your AI-powered product?",
+        placeholder="Enter your product description here...",
+        help=(
+            "Your product description is used to generate a measurement instrument for an AI risk. "
+            "Please describe your product in a comprehensive way."
+        ),
+        key="product_description_input",
+    )
 
-        # Model inputs
-        st.markdown(
-            '<p style="font-size: 0.875rem; margin-bottom: 0.25rem;">Select the model to use and enter its API key:</p>',
-            unsafe_allow_html=True,
+    st.markdown(
+        '<p class="risk-field-title">What is the AI risk you want to create a measurement instrument for?</p>',
+        unsafe_allow_html=True,
+    )
+
+    # Live typeahead needs reruns as the user types; the landing page is not an st.form.
+    if not load_all_risks():
+        st.warning("Risk taxonomy search is unavailable. You can still enter a custom risk description.")
+    st_searchbox(
+        _search_risk_options,
+        placeholder='Search AI Risk library (Optional, e.g. type "bias", "privacy", "misinformation"...)',
+        key=_RISK_SEARCH_KEY,
+        clear_on_submit=True,
+        submit_function=_stash_selected_risk,
+    )
+
+    current_risk_description = st.text_area(
+        label="Risk description",
+        label_visibility="collapsed",
+        placeholder="Or enter your risk description here...",
+        help=(
+            "Your risk description is used to generate a risk assessment. Please describe the "
+            "AI risk your product is exposed to in order to generate a measurement instrument. "
+            "Selecting a library match above appends it here."
+        ),
+        key="risk_description_input",
+    )
+
+    st.markdown(
+        '<p style="font-size: 0.875rem; margin-bottom: 0.25rem;">Select the model to use and enter its API key:</p>',
+        unsafe_allow_html=True,
+    )
+    column_model, column_api_key = st.columns([0.3, 0.7])
+    with column_model:
+        model_options = list(ModelInfo)
+        current_model_info = st.selectbox(
+            label="Select the model you want to use:",
+            label_visibility="collapsed",
+            options=model_options,
+            index=0,
+            key="model_info_input",
+            accept_new_options=True,
+            help="Pick a known model or type a custom model ID. Custom model IDs require a proxy address.",
         )
-        column_model, column_api_key = st.columns([0.3, 0.7])
-        with column_model:
-            model_options = list(ModelInfo)
-            current_model_info = st.selectbox(
-                label="Select the model you want to use:",
-                label_visibility="collapsed",
-                options=model_options,
-                index=0,
-                key="model_info_input",
-                accept_new_options=True,
-                help="Pick a known model or type a custom model ID. Custom model IDs require a proxy address.",
-            )
 
-        with column_api_key:
-            current_api_key = st.text_input(
-                label="Enter your API key:",
-                label_visibility="collapsed",
-                placeholder="Paste your API key here...",
-                help="Your API key is used to authenticate your requests to the model API.",
-                type="password",
-                key="api_key_input",
-            )
+    with column_api_key:
+        current_api_key = st.text_input(
+            label="Enter your API key:",
+            label_visibility="collapsed",
+            placeholder="Paste your API key here...",
+            help="Your API key is used to authenticate your requests to the model API.",
+            type="password",
+            key="api_key_input",
+        )
 
-        with st.expander("Proxy details"):
-            current_proxy = st.text_input(
-                label="Proxy address",
-                placeholder="Type your proxy address",
-                help=(
-                    "OpenAI-compatible base URL. Leave blank for known models to use their "
-                    "provider default. Required for custom model IDs."
-                ),
-                key="proxy_base_url_input",
-            )
+    with st.expander("Proxy details"):
+        current_proxy = st.text_input(
+            label="Proxy address",
+            placeholder="Type your proxy address",
+            help=(
+                "OpenAI-compatible base URL. Leave blank for known models to use their "
+                "provider default. Required for custom model IDs."
+            ),
+            key="proxy_base_url_input",
+        )
 
-        if st.form_submit_button(
-            "Generate Questions", type="primary", key="generate_questions_button"
-        ) and _apply_landing_form_submission(
-            current_product_description,
-            current_risk_description,
-            current_api_key,
-            current_model_info,
-            current_proxy,
-        ):
-            st.rerun()
+    generate_clicked = st.button("Generate Questions", type="primary", key="generate_questions_button")
+    if generate_clicked and _apply_landing_form_submission(
+        current_product_description,
+        current_risk_description,
+        current_api_key,
+        current_model_info,
+        current_proxy,
+    ):
+        st.rerun()
 
 
 def render_follow_up_questions(follow_up_questions: list[str]) -> None:

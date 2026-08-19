@@ -13,12 +13,30 @@ from streamlit.testing.v1 import AppTest
 
 from aspis.inferencer import DEFAULT_OPENAI_TIMEOUT_SECONDS
 from aspis.providers import ModelInfo, resolve_model_and_provider_url
+from aspis.risk_catalog import RiskEntry, RiskSource, append_risk_text, format_dropdown_label
 from aspis.systematization import (
     SystematizedConcept,
     get_systematization_questions_prompt,
     get_systematized_concepts_prompt,
 )
-from aspis.ui.main import _apply_landing_form_submission
+from aspis.ui.main import (
+    _PENDING_RISK_DESCRIPTION_KEY,
+    _RISK_SEARCH_KEY,
+    _apply_landing_form_submission,
+    _apply_pending_risk_append,
+    _search_risk_options,
+    _stash_selected_risk,
+)
+
+
+@pytest.fixture(autouse=True)
+def stub_risk_searchbox(monkeypatch: pytest.MonkeyPatch) -> None:
+    """AppTest cannot drive the streamlit-searchbox custom component."""
+
+    def _stub_st_searchbox(*args: Any, **kwargs: Any) -> None:
+        return None
+
+    monkeypatch.setattr("streamlit_searchbox.st_searchbox", _stub_st_searchbox)
 
 
 def make_openai_side_effect(api_key: str, return_value: Any) -> Callable[..., Mock]:
@@ -60,9 +78,11 @@ def test_main_render_inputs_when_empty(mock_openai: Mock) -> None:
     assert app.text_input("proxy_base_url_input").value == ""
     assert app.text_input("proxy_base_url_input").placeholder == "Type your proxy address"
     assert app.text_area("product_description_input").label == "What is the description of your AI-powered product?"
-    assert (
-        app.text_area("risk_description_input").label
-        == "What is the AI risk you want to create a measurement instrument for?"
+    assert app.text_area("risk_description_input").label == "Risk description"
+    assert app.text_area("risk_description_input").placeholder == "Or enter your risk description here..."
+    assert any(
+        "What is the AI risk you want to create a measurement instrument for?" in markdown.value
+        for markdown in app.markdown
     )
 
 
@@ -660,9 +680,11 @@ def assert_landing_page_rendered_without_inputs(app: AppTest) -> None:
     assert "risk_description" not in app.session_state
     assert "api_key" not in app.session_state
     assert app.text_area("product_description_input").label == "What is the description of your AI-powered product?"
-    assert (
-        app.text_area("risk_description_input").label
-        == "What is the AI risk you want to create a measurement instrument for?"
+    assert app.text_area("risk_description_input").label == "Risk description"
+    assert app.text_area("risk_description_input").placeholder == "Or enter your risk description here..."
+    assert any(
+        "What is the AI risk you want to create a measurement instrument for?" in markdown.value
+        for markdown in app.markdown
     )
 
 
@@ -924,22 +946,72 @@ def test_main_known_model_with_custom_proxy(mock_openai: Mock) -> None:
     )
 
 
-def test_landing_page_inputs_are_inside_the_form() -> None:
-    """A browser only flushes pending edits of widgets that live inside the form."""
+def test_landing_page_inputs_are_not_inside_a_form() -> None:
+    """Landing Generate is a normal button so search can sit between fields."""
     app = AppTest.from_file("src/aspis/ui/main.py")
     app.run()
 
     assert len(app.exception) == 0
-    form_id = app.button("generate_questions_button").form_id
-    assert form_id != ""
-    assert app.selectbox("model_info_input").form_id == form_id
-    # AppTest cannot type a custom option, so assert the model selectbox still allows
-    # one now that it lives inside the form.
+    assert app.button("generate_questions_button").form_id == ""
+    assert app.selectbox("model_info_input").form_id == ""
     assert app.selectbox("model_info_input").proto.accept_new_options is True
-    assert app.text_input("api_key_input").form_id == form_id
-    assert app.text_input("proxy_base_url_input").form_id == form_id
-    assert app.text_area("product_description_input").form_id == form_id
-    assert app.text_area("risk_description_input").form_id == form_id
+    assert app.text_input("api_key_input").form_id == ""
+    assert app.text_input("proxy_base_url_input").form_id == ""
+    assert app.text_area("product_description_input").form_id == ""
+    assert app.text_area("risk_description_input").form_id == ""
+    assert app.text_area("risk_description_input").placeholder == "Or enter your risk description here..."
+
+
+def test_apply_pending_risk_append_updates_widget_keys_before_instantiation() -> None:
+    session_state: dict[str, Any] = {
+        _PENDING_RISK_DESCRIPTION_KEY: "[NIST AI RMF — Measure 2.11 Fairness and bias]\nFairness text.",
+        "risk_description_input": "old",
+        _RISK_SEARCH_KEY: {"result": "stale-selection"},
+    }
+    _apply_pending_risk_append(session_state)
+    assert _PENDING_RISK_DESCRIPTION_KEY not in session_state
+    assert session_state["risk_description_input"] == ("[NIST AI RMF — Measure 2.11 Fairness and bias]\nFairness text.")
+    assert _RISK_SEARCH_KEY not in session_state
+
+    unchanged: dict[str, Any] = {"risk_description_input": "keep"}
+    _apply_pending_risk_append(unchanged)
+    assert unchanged == {"risk_description_input": "keep"}
+
+
+def test_search_risk_options_returns_labeled_catalog_entries() -> None:
+    assert _search_risk_options("b") == []
+    options = _search_risk_options("bias")
+    assert options
+    for label, entry in options:
+        assert label == format_dropdown_label(entry)
+        assert isinstance(entry, RiskEntry)
+    assert any("bias" in entry.title.lower() or "bias" in entry.description.lower() for _, entry in options)
+
+
+def test_stash_selected_risk_queues_append_for_next_run() -> None:
+    entry = RiskEntry(
+        id="nist-measure-2.11",
+        title="Measure 2.11 Fairness and bias",
+        description="Fairness and bias are evaluated.",
+        category="Measure 2",
+        source=RiskSource.NIST.display_name,
+        source_key=RiskSource.NIST,
+    )
+    session_state = FakeSessionState()
+    session_state["risk_description_input"] = "Existing notes"
+    session_state[_RISK_SEARCH_KEY] = {"result": entry}
+
+    with patch("aspis.ui.main.st.session_state", session_state):
+        _stash_selected_risk("not-an-entry")
+        assert _PENDING_RISK_DESCRIPTION_KEY not in session_state
+        _stash_selected_risk(entry)
+
+    assert session_state[_PENDING_RISK_DESCRIPTION_KEY] == append_risk_text("Existing notes", entry)
+
+    _apply_pending_risk_append(session_state)
+    assert session_state["risk_description_input"] == append_risk_text("Existing notes", entry)
+    assert _RISK_SEARCH_KEY not in session_state
+    assert _PENDING_RISK_DESCRIPTION_KEY not in session_state
 
 
 def test_resolve_model_and_provider_url_known_model_defaults_from_ui() -> None:
