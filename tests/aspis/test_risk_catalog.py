@@ -241,11 +241,24 @@ def test_truncate_and_label_edge_cases() -> None:
     assert " — " not in mid_label
     assert len(mid_label) <= DROPDOWN_HARD_CAP
 
-    # Very long description forces hard-cap truncation of the full label.
+    # Very long description is truncated to the target length first.
     capped = format_dropdown_label(
         _entry(
             title="Short title",
             description="word " * 80,
         )
     )
+    assert " — " in capped
     assert len(capped) <= DROPDOWN_HARD_CAP
+
+
+def test_format_dropdown_label_hard_caps_assembled_label(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(risk_catalog, "DROPDOWN_TARGET_LEN", 300)
+    label = format_dropdown_label(
+        _entry(
+            title="Short title",
+            description="word " * 80,
+        )
+    )
+    assert " — " in label
+    assert len(label) <= DROPDOWN_HARD_CAP

@@ -4,6 +4,7 @@ import json
 from copy import deepcopy
 from dataclasses import asdict
 from io import BytesIO
+from pathlib import Path
 from typing import Any, Callable
 from unittest.mock import ANY, Mock, patch
 
@@ -13,7 +14,13 @@ from streamlit.testing.v1 import AppTest
 
 from aspis.inferencer import DEFAULT_OPENAI_TIMEOUT_SECONDS
 from aspis.providers import ModelInfo, resolve_model_and_provider_url
-from aspis.risk_catalog import RiskEntry, RiskSource, append_risk_text, format_dropdown_label
+from aspis.risk_catalog import (
+    RiskEntry,
+    RiskSource,
+    append_risk_text,
+    format_dropdown_label,
+    load_all_risks,
+)
 from aspis.systematization import (
     SystematizedConcept,
     get_systematization_questions_prompt,
@@ -944,6 +951,25 @@ def test_main_known_model_with_custom_proxy(mock_openai: Mock) -> None:
         base_url=test_proxy,
         timeout=DEFAULT_OPENAI_TIMEOUT_SECONDS,
     )
+
+
+def test_landing_page_warns_when_risk_catalog_unavailable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    empty_dir = tmp_path / "risks"
+    empty_dir.mkdir()
+    monkeypatch.setattr("aspis.risk_catalog.RISKS_DIR", empty_dir)
+    load_all_risks.cache_clear()
+    try:
+        app = AppTest.from_file("src/aspis/ui/main.py")
+        app.run()
+    finally:
+        load_all_risks.cache_clear()
+
+    assert len(app.exception) == 0
+    assert any(
+        "Risk taxonomy search is unavailable. You can still enter a custom risk description." in warning.value
+        for warning in app.warning
+    )
+    assert app.text_area("risk_description_input").placeholder == "Or enter your risk description here..."
 
 
 def test_landing_page_inputs_are_not_inside_a_form() -> None:
