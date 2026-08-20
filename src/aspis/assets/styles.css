@@ -6,3 +6,12 @@
 .stDownloadButton > button:hover {
     background: linear-gradient(135deg, #5568d3 0%, #1aa179 100%) !important;
 }
+
+.risk-field-title {
+    font-size: 0.875rem;
+    margin: 0 0 0.25rem 0;
+}
+
+iframe[title="streamlit_searchbox.searchbox"] {
+    margin-bottom: 0;
+}

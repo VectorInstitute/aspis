@@ -24,3 +24,6 @@ wheels/
 *.DS_Store
 .coverage
 coverage.xml
+
+# Spec skill review artifacts
+reviews/

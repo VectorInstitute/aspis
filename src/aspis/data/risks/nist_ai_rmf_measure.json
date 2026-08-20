@@ -1,0 +1,134 @@
+[
+  {
+    "id": "nist-measure-1.1",
+    "title": "Measure 1.1 Approaches and metrics selection",
+    "description": "Approaches and metrics for measurement of AI risks enumerated during the map function are selected for implementation starting with the most significant AI risks. The risks or trustworthiness characteristics that will not – or cannot – be measured are properly documented.",
+    "category": "Measure 1"
+  },
+  {
+    "id": "nist-measure-1.2",
+    "title": "Measure 1.2 Metrics and controls reassessment",
+    "description": "Appropriateness of AI metrics and effectiveness of existing controls are regularly assessed and updated, including reports of errors and potential impacts on affected communities.",
+    "category": "Measure 1"
+  },
+  {
+    "id": "nist-measure-1.3",
+    "title": "Measure 1.3 Independent and external assessment",
+    "description": "Internal experts who did not serve as front-line developers for the system and/or independent assessors are involved in regular assessments and updates. Domain experts, users, AI actors external to the team that developed or deployed the AI system, and affected communities are consulted in support of assessments as necessary per organizational risk tolerance.",
+    "category": "Measure 1"
+  },
+  {
+    "id": "nist-measure-2.1",
+    "title": "Measure 2.1 TEVV documentation",
+    "description": "Test sets, metrics, and details about the tools used during TEVV are documented.",
+    "category": "Measure 2"
+  },
+  {
+    "id": "nist-measure-2.2",
+    "title": "Measure 2.2 Human subject evaluations",
+    "description": "Evaluations involving human subjects meet applicable requirements (including human subject protection) and are representative of the relevant population.",
+    "category": "Measure 2"
+  },
+  {
+    "id": "nist-measure-2.3",
+    "title": "Measure 2.3 Performance in deployment-like conditions",
+    "description": "AI system performance or assurance criteria are measured qualitatively or quantitatively and demonstrated for conditions similar to deployment setting(s). Measures are documented.",
+    "category": "Measure 2"
+  },
+  {
+    "id": "nist-measure-2.4",
+    "title": "Measure 2.4 Production monitoring",
+    "description": "The functionality and behavior of the AI system and its components – as identified in the map function – are monitored when in production.",
+    "category": "Measure 2"
+  },
+  {
+    "id": "nist-measure-2.5",
+    "title": "Measure 2.5 Validity and reliability",
+    "description": "The AI system to be deployed is demonstrated to be valid and reliable. Limitations of the generalizability beyond the conditions under which the technology was developed are documented.",
+    "category": "Measure 2"
+  },
+  {
+    "id": "nist-measure-2.6",
+    "title": "Measure 2.6 Safety",
+    "description": "The AI system is evaluated regularly for safety risks – as identified in the map function. The AI system to be deployed is demonstrated to be safe, its residual negative risk does not exceed the risk tolerance, and it can fail safely, particularly if made to operate beyond its knowledge limits. Safety metrics reflect system reliability and robustness, real-time monitoring, and response times for AI system failures.",
+    "category": "Measure 2"
+  },
+  {
+    "id": "nist-measure-2.7",
+    "title": "Measure 2.7 Security and resilience",
+    "description": "AI system security and resilience – as identified in the map function – are evaluated and documented.",
+    "category": "Measure 2"
+  },
+  {
+    "id": "nist-measure-2.8",
+    "title": "Measure 2.8 Transparency and accountability",
+    "description": "Risks associated with transparency and accountability – as identified in the map function – are examined and documented.",
+    "category": "Measure 2"
+  },
+  {
+    "id": "nist-measure-2.9",
+    "title": "Measure 2.9 Explainability and interpretability",
+    "description": "The AI model is explained, validated, and documented, and AI system output is interpreted within its context – as identified in the map function – to inform responsible use and governance.",
+    "category": "Measure 2"
+  },
+  {
+    "id": "nist-measure-2.10",
+    "title": "Measure 2.10 Privacy",
+    "description": "Privacy risk of the AI system – as identified in the map function – is examined and documented.",
+    "category": "Measure 2"
+  },
+  {
+    "id": "nist-measure-2.11",
+    "title": "Measure 2.11 Fairness and bias",
+    "description": "Fairness and bias – as identified in the map function – are evaluated and results are documented.",
+    "category": "Measure 2"
+  },
+  {
+    "id": "nist-measure-2.12",
+    "title": "Measure 2.12 Environmental impact and sustainability",
+    "description": "Environmental impact and sustainability of AI model training and management activities – as identified in the map function – are assessed and documented.",
+    "category": "Measure 2"
+  },
+  {
+    "id": "nist-measure-2.13",
+    "title": "Measure 2.13 TEVV process effectiveness",
+    "description": "Effectiveness of the employed TEVV metrics and processes in the measure function are evaluated and documented.",
+    "category": "Measure 2"
+  },
+  {
+    "id": "nist-measure-3.1",
+    "title": "Measure 3.1 Risk tracking over time",
+    "description": "Approaches, personnel, and documentation are in place to regularly identify and track existing, unanticipated, and emergent AI risks based on factors such as intended and actual performance in deployed contexts.",
+    "category": "Measure 3"
+  },
+  {
+    "id": "nist-measure-3.2",
+    "title": "Measure 3.2 Tracking hard-to-measure risks",
+    "description": "Risk tracking approaches are considered for settings where AI risks are difficult to assess using currently available measurement techniques or where metrics are not yet available.",
+    "category": "Measure 3"
+  },
+  {
+    "id": "nist-measure-3.3",
+    "title": "Measure 3.3 End-user and community feedback",
+    "description": "Feedback processes for end users and impacted communities to report problems and appeal system outcomes are established and integrated into AI system evaluation metrics.",
+    "category": "Measure 3"
+  },
+  {
+    "id": "nist-measure-4.1",
+    "title": "Measure 4.1 Context-informed measurement approaches",
+    "description": "Measurement approaches for identifying AI risks are connected to deployment context(s) and informed through consultation with domain experts and other end users. Approaches are documented.",
+    "category": "Measure 4"
+  },
+  {
+    "id": "nist-measure-4.2",
+    "title": "Measure 4.2 Expert validation of measurement results",
+    "description": "Measurement results regarding AI system trustworthiness in deployment context(s) and across the AI lifecycle are informed by input from domain experts and relevant AI actors to validate whether the system is performing consistently as intended. Results are documented.",
+    "category": "Measure 4"
+  },
+  {
+    "id": "nist-measure-4.3",
+    "title": "Measure 4.3 Performance improvements or declines",
+    "description": "Measurable performance improvements or declines based on consultations with relevant AI actors, including affected communities, and field data about context-relevant risks and trustworthiness characteristics are identified and documented.",
+    "category": "Measure 4"
+  }
+]
