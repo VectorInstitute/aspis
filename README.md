@@ -8,12 +8,30 @@
 [![codecov](https://codecov.io/gh/VectorInstitute/aspis/graph/badge.svg?token=nKpBEtl2Ah)](https://codecov.io/github/VectorInstitute/aspis)
 ![GitHub License](https://img.shields.io/github/license/VectorInstitute/aspis)
 
-Aspis is a tool for creating measurement instruments for AI risks. It helps you
-systematically analyze and evaluate AI-powered products by converting high-level risk
-descriptions into specific, measurable concepts that can be operationalized using
-LLM-as-a-judge evaluation.
+Aspis is a tool for creating measurement instruments for AI risks. High-level
+risk statements are often too generic to consistently evaluate a real-world
+product. Aspis operationalizes a product and risk description into
+systematized, measurable concepts and LLM-as-judge prompt templates that
+evaluators can apply to model or agent outputs. It draws on integrated risk
+taxonomies from the
+[MIT AI Risk Repository](https://airisk.mit.edu/) and the
+[NIST AI Risk Management Framework](https://www.nist.gov/itl/ai-risk-management-framework)
+(NIST AI RMF).
+
+Try the hosted app on Hugging Face Spaces:
+
+https://huggingface.co/spaces/vector-institute/aspis
+
+The methodology is described in *Aspis: Systematizing AI Risk Evaluation for
+LLMs and Agents Using LLM-Based Evaluators*
+([ResearchGate](https://www.researchgate.net/publication/404299934_Aspis_Systematizing_AI_Risk_Evaluation_for_LLMs_and_Agents_Using_LLM-Based_Evaluators),
+[DOI 10.13140/rg.2.2.10295.89769](https://doi.org/10.13140/rg.2.2.10295.89769)).
+It builds on
+["Evaluating Generative AI Systems is a Social Science Measurement Challenge"](https://arxiv.org/abs/2411.10939),
+by Wallach et al.
 
 **Key Features:**
+
 - ⚙️ **Systematization**: Transforms background concepts (product and risk descriptions)
 into well-defined, measurable systematized concepts
 - 🌐 **Interactive UI**: Streamlit-based interface that guides you through the
@@ -23,18 +41,8 @@ existing workflows
 - ⚖️ **LLM-as-a-Judge**: Generates ready-to-use prompt templates for evaluating text
 against specific risk criteria
 
-Aspis uses a systematization methodology to break down abstract AI risks into
-concrete, evaluable concepts, enabling systematic risk assessment of AI systems.
-It is based on the methodology described in the paper
-["Evaluating Generative AI Systems is a Social Science Measurement Challenge"](https://arxiv.org/abs/2411.10939),
-by Wallach et al.
-
 
 ## 🤗 Accessing Aspis on Hugging Face
-
-Aspis is hosted on Hugging Face Spaces under the URL below:
-
-https://huggingface.co/spaces/vector-institute/aspis
 
 The API is also available under Hugging Face Spaces. To see the full documentation
 on the available endpoints, please visit:
