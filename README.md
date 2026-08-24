@@ -46,7 +46,7 @@ on the available endpoints, please visit:
 https://vector-institute-aspis.hf.space/api/docs
 
 For more details on how to use the API, please see the
-[Using the API](#using-the-api) section.
+[Using the API](#-using-the-api) section.
 
 
 ## 🐳 Running using Docker
@@ -66,7 +66,7 @@ docker run --rm -p 8080:8080 aspis:latest
 
 ## 👩‍💻 Running from source
 
-Please refer to the [CONTRIBUTING.md](https://github.com/VectorInstitute/aspis/blob/main/CONTRIBUTING.md) file.
+Please refer to the [CONTRIBUTING.md](CONTRIBUTING.md) file.
 
 ## 🖥 Using the UI
 
