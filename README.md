@@ -12,7 +12,11 @@ Aspis is a tool for creating measurement instruments for AI risks. High-level
 risk statements are often too generic to consistently evaluate a real-world
 product. Aspis operationalizes a product and risk description into
 systematized, measurable concepts and LLM-as-judge prompt templates that
-evaluators can apply to model or agent outputs.
+evaluators can apply to model or agent outputs. It draws on integrated risk
+taxonomies from the
+[MIT AI Risk Repository](https://airisk.mit.edu/) and the
+[NIST AI Risk Management Framework](https://www.nist.gov/itl/ai-risk-management-framework)
+(NIST AI RMF).
 
 Try the hosted app on Hugging Face Spaces:
 

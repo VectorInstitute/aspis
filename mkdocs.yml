@@ -52,7 +52,7 @@ plugins:
             show_symbol_type_toc: true
 repo_url: https://github.com/VectorInstitute/aspis
 repo_name: VectorInstitute/aspis
-site_name: Aspis
+site_name: 🛡️ Aspis
 theme:
   custom_dir: docs/overrides
   favicon: assets/favicon-48x48.svg
